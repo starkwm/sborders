@@ -1,0 +1,10 @@
+{
+  // Colours use alpha last: #RRGGBBAA.
+  "width": 4,
+  "style": "round",
+  "activeColor": "#89B4FA",
+  "inactiveColor": "#45475A80",
+  "excludeApps": [
+    { "bundleID": "com.apple.systempreferences" },
+  ],
+}
