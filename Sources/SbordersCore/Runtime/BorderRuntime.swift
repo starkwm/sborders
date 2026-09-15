@@ -6,6 +6,7 @@ public final class BorderRuntime {
   private let store: ConfigurationStore
   private let server: WindowServerClient
   private let events: WindowEventSource
+  private let missionControl: MissionControlObserver
   private let logger = Logger(subsystem: "com.starkwm.sborders", category: "runtime")
   private var coordinator = BorderCoordinator()
   private var borders: [UInt32: BorderWindow] = [:]
@@ -30,6 +31,7 @@ public final class BorderRuntime {
     store = try ConfigurationStore(url: configurationURL, allowMissing: allowMissingConfiguration)
     server = try WindowServerClient()
     events = WindowEventSource(api: server.api)
+    missionControl = MissionControlObserver(api: server.api)
   }
 
   public func run() throws {
@@ -50,6 +52,16 @@ public final class BorderRuntime {
     running = true
     do {
       try events.start { [weak self] event in DispatchQueue.main.async { self?.receive(event) } }
+      missionControl.start { [weak self] in
+        guard let self, self.running else { return }
+        if self.missionControl.isActive {
+          do { try self.render() } catch { self.report(error) }
+        } else {
+          self.refreshAll = true
+          self.schedule()
+          self.scheduleRetry()
+        }
+      }
       try reconcile()
     } catch {
       stop()
@@ -79,6 +91,7 @@ public final class BorderRuntime {
     retry?.cancel()
     retry = nil
     events.stop()
+    missionControl.stop()
     try? server.subscribe(ids: [])
     watcher?.stop()
     watcher = nil
@@ -114,6 +127,14 @@ public final class BorderRuntime {
     guard running else { return }
     if let id = event.windowID, ownedIDs.contains(id) { return }
     eventCount += 1
+    if event.kind == .missionControl {
+      missionControl.entered()
+      return
+    }
+    if event.kind == .created, let id = event.windowID { missionControl.windowCreated(id: id) }
+    if event.kind == .focus || event.kind == .spaces || event.kind == .refresh {
+      missionControl.checkForEntry()
+    }
     if event.kind == .closed, let id = event.windowID {
       coordinator.remove(id)
       borders.removeValue(forKey: id)?.close()
@@ -186,7 +207,9 @@ public final class BorderRuntime {
   }
 
   private func render() throws {
-    let targets = suspended ? [] : coordinator.visibleWindows(configuration: store.configuration)
+    let targets =
+      suspended || missionControl.isActive
+      ? [] : coordinator.visibleWindows(configuration: store.configuration)
     let visible = Set(targets.map(\.id))
     for id in Array(borders.keys)
     where coordinator.windows[id] == nil || !store.configuration.enabled
@@ -335,7 +358,8 @@ public final class BorderRuntime {
               backendError: lastBackendError,
               focusMode: store.configuration.focusMode.rawValue,
               focusedWindowID: coordinator.focusedID,
-              osVersion: ProcessInfo.processInfo.operatingSystemVersionString
+              osVersion: ProcessInfo.processInfo.operatingSystemVersionString,
+              missionControlActive: missionControl.isActive
             )
           )
         default: throw MessageError.message("Unknown query: \(subject).")
@@ -397,4 +421,5 @@ private struct Diagnostics: Encodable {
   let focusMode: String
   let focusedWindowID: UInt32?
   let osVersion: String
+  let missionControlActive: Bool
 }

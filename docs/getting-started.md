@@ -48,3 +48,7 @@ The default `windowServer` focus mode tracks windows through private WindowServe
 Private APIs can change between macOS releases. Missing required functions produce a startup error. Read [the validation record](development.md#validation-record) before relying on an untested OS version.
 
 For initial testing, stop any other border daemon to avoid drawing two borders around the same windows.
+
+## Mission Control
+
+Borders hide temporarily while Mission Control is open and return after it closes. This also applies when the daemon starts during Mission Control. Configuration reloads and runtime settings respect the temporary suppression. No additional permission or configuration option is needed.
