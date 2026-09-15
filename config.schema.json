@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "sborders configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "enabled": {
+      "type": "boolean",
+      "default": true
+    },
+    "width": {
+      "type": "number",
+      "minimum": 0.5,
+      "maximum": 64,
+      "default": 4
+    },
+    "style": {
+      "enum": [
+        "round",
+        "square"
+      ],
+      "default": "round"
+    },
+    "activeColor": {
+      "$ref": "#/$defs/color",
+      "default": "#E1E3E4"
+    },
+    "inactiveColor": {
+      "$ref": "#/$defs/color",
+      "default": "#00000000"
+    },
+    "focusMode": {
+      "enum": [
+        "windowServer",
+        "accessibility"
+      ],
+      "default": "windowServer"
+    },
+    "includeApps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/appMatcher"
+      },
+      "default": []
+    },
+    "excludeApps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/appMatcher"
+      },
+      "default": []
+    }
+  },
+  "$defs": {
+    "color": {
+      "type": "string",
+      "pattern": "^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$"
+    },
+    "appMatcher": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "bundleID": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "processName": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "bundleID"
+          ]
+        },
+        {
+          "required": [
+            "processName"
+          ]
+        }
+      ]
+    }
+  }
+}
