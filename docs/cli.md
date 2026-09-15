@@ -34,9 +34,9 @@ Queries return an object with `ok`, a `value` on successful queries, and `error`
 
 `query --config` reports the effective configuration, including runtime changes.
 
-`query --windows` includes discovered windows, their IDs, PID, application identity, frame, Spaces, focus state, and border diagnostics. A missing border can be expected when a window is hidden, fullscreen, filtered, or borders are disabled. `borderFrame` and `borderSublevel` query the actual WindowServer border state. `borderVisible` reports whether its window is ordered in. Frames use WindowServer coordinates, with their origin at the top left of the main display; other displays can have negative coordinates.
+`query --windows` includes discovered windows, their IDs, PID, application identity, frame, Spaces, focus state, and border diagnostics. A missing border can be expected for hidden, fullscreen, or filtered windows. Borders also hide while Mission Control is active or borders are disabled. `borderFrame` and `borderSublevel` query the actual WindowServer border state. `borderVisible` reports whether its window is ordered in. Frames use WindowServer coordinates, with their origin at the top left of the main display; other displays can have negative coordinates.
 
-`query --diagnostics` includes the daemon PID, OS version, window and border counts, event and reconciliation counts, selected configuration path, runtime override status, and the latest configuration or backend error. Border count includes any retained hidden border windows.
+`query --diagnostics` includes the daemon PID, OS version, window and border counts, event and reconciliation counts, selected configuration path, runtime override status, and the latest configuration or backend error. `missionControlActive` reports temporary overview suppression; `enabled` in the configuration remains unchanged. Border count includes any retained hidden border windows.
 
 ## Stop
 

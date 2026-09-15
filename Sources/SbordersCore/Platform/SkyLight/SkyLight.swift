@@ -6,6 +6,8 @@ import AppKit
 final class SkyLight {
   typealias Notify =
     @convention(c) (UInt32, UnsafeRawPointer?, Int, UnsafeMutableRawPointer?) -> Void
+  typealias ConnectionNotify =
+    @convention(c) (UInt32, UnsafeRawPointer?, Int, UnsafeMutableRawPointer?, Int32) -> Void
 
   let connection: Int32
   let getBounds: @convention(c) (Int32, UInt32, UnsafeMutablePointer<CGRect>) -> Int32
@@ -31,6 +33,10 @@ final class SkyLight {
   let radii: (@convention(c) (CFTypeRef) -> Unmanaged<CFArray>?)?
   let register: @convention(c) (Notify, UInt32, UnsafeMutableRawPointer?) -> Int32
   let unregister: @convention(c) (Notify, UInt32, UnsafeMutableRawPointer?) -> Int32
+  let registerConnection:
+    @convention(c) (Int32, ConnectionNotify, UInt32, UnsafeMutableRawPointer?) -> Int32
+  let unregisterConnection:
+    @convention(c) (Int32, ConnectionNotify, UInt32, UnsafeMutableRawPointer?) -> Int32
   let notifications: @convention(c) (Int32, UnsafePointer<UInt32>?, Int32) -> Int32
   let newRegion:
     @convention(c) (UnsafePointer<CGRect>, UnsafeMutablePointer<Unmanaged<CFTypeRef>?>) -> Int32
@@ -97,6 +103,8 @@ final class SkyLight {
     radii = try? load("SLSWindowIteratorGetCornerRadii")
     register = try load("SLSRegisterNotifyProc")
     unregister = try load("SLSRemoveNotifyProc")
+    registerConnection = try load("SLSRegisterConnectionNotifyProc")
+    unregisterConnection = try load("SLSRemoveConnectionNotifyProc")
     notifications = try load("SLSRequestNotificationsForWindows")
     newRegion = try load("CGSNewRegionWithRect")
     newWindow = try load("SLSNewWindow")

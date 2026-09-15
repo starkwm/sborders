@@ -1,11 +1,11 @@
 # First-version validation
 
-Checked on 15 September 2026 with macOS 27.0 build `26A428`, Apple Silicon, and Swift 6.4. The package deployment target is macOS 26.
+Checked on 15 and 16 September 2026 with macOS 27.0 build `26A428`, Apple Silicon, and Swift 6.4. The package deployment target is macOS 26.
 
 ## Automated checks
 
 - `make lint` checks Swift formatting.
-- `swift test --parallel --disable-xctest` passes 25 tests across two test targets, including parameterised invalid-configuration and rendering cases.
+- `swift test --parallel --disable-xctest` passes 30 tests across two test targets, including parameterised invalid-configuration and rendering cases.
 - The JSON schema parses successfully.
 - Documentation examples pass the real configuration validator.
 - `otool -L` lists system frameworks and system Swift libraries. The binary does not require a sibling checkout or a SwiftPM resource bundle.
@@ -32,6 +32,18 @@ The release binary passed the following desktop checks during implementation:
 
 The fixture compares border geometry with fresh WindowServer data. Its ordering check uses the visible window stack. An offscreen bitmap test also verifies that both border styles leave the window interior and outer padding transparent. A captured live border was inspected during implementation.
 
+## Mission Control follow-up
+
+Checked on 16 September 2026 on the same macOS 27 build. The interactive Mission Control checks passed:
+
+- Entry hides both fixture borders. Reloading and changing settings while the overview is open keeps them hidden.
+- Restarting the daemon during Mission Control starts with borders hidden.
+- Exit restores borders with current geometry and focus, without changing the configured `enabled` value.
+
+This machine uses WindowManager's overview shield at layer 19. The implementation also recognises Dock's layer 18 overview and entry notification for older macOS versions, but that path still needs a macOS 26 desktop test. Window titles are not used for detection.
+
+The interactive and fullscreen runs passed their functional checks but failed later idle assertions. A separate quiet-desktop run passed all 14 baseline checks, including idle behaviour, duplicate startup, and cleanup. During that idle sample, the event count stayed at 24 and the reconciliation count at 18; CPU time and repaint counts also stayed unchanged.
+
 ## Initial resource sample
 
 With two fixture windows after the interaction checks, the release daemon reported 42,688 KiB resident memory, approximately 41.7 MiB. Process CPU time read `0:00.37` before and after a one-second idle interval. Reconciliation and repaint counts also stayed unchanged in that interval.
@@ -44,7 +56,7 @@ The following have not been established by this run:
 
 - A macOS 26 desktop and the Swift 6.2 compiler.
 - Multiple displays, mixed display scales, and sticky windows.
-- Mission Control and Stage Manager transitions.
+- Stage Manager transitions and Mission Control on macOS 26.
 - Sleep/wake and login/logout.
 - Live Accessibility permission handling and focus compatibility across applications.
 - Window-manager animation proxies, which are outside the first version.

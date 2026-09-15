@@ -8,6 +8,8 @@ All native window state and drawing belong to the main actor. Socket work runs o
 
 AppKit's native event loop delivers WindowServer notifications. A bare `CFRunLoopRun` did not deliver updates in live testing. The daemon uses a prohibited activation policy, without a Dock icon or interactive application window.
 
+Mission Control temporarily suppresses rendering without changing `enabled`. WindowServer event 1204 covers the older Dock path. Window creation and focus events also check for macOS 27's WindowManager overview. Detection uses the owning process and window layer, so it needs no window titles or additional permissions. Entry checks are bounded; while the overview is active, a 100 ms timer watches for its disappearance. Exit requires two absent samples and triggers fresh window reconciliation. Shutdown cancels the timer.
+
 Movement preserves the existing drawing. Size, scale, colour, and radius changes redraw. The coordinator tracks application windows separately from notification subscriptions so hiding a window does not prevent its later return.
 
 ## Build and tests
@@ -32,7 +34,7 @@ macOS 26 is the deployment target. A deployment target alone does not prove comp
 
 ## Remaining validation
 
-Test a macOS 26 desktop and compiler, mixed-scale multi-display layouts, sticky windows, Mission Control, Stage Manager, sleep/wake and login/logout before treating those combinations as verified. The optional Accessibility focus mode also needs a live permission and application compatibility pass.
+Test a macOS 26 desktop and compiler, mixed-scale multi-display layouts, sticky windows, Mission Control on macOS 26, Stage Manager, sleep/wake and login/logout before treating those combinations as verified. The optional Accessibility focus mode also needs a live permission and application compatibility pass.
 
 Private APIs can change. Required missing symbols stop startup; optional corner-radius discovery uses a fixed fallback. Keep declarations and ownership rules inside `Platform/SkyLight`. The callback destination lives for the process lifetime so late callbacks cannot dereference a released runtime.
 
