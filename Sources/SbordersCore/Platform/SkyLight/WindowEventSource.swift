@@ -63,7 +63,10 @@ final class WindowEventSource {
 }
 
 struct WindowEvent: Sendable, Equatable {
-  enum Kind: Sendable { case refresh, created, changed, closed, focus, spaces, missionControl }
+  enum Kind: Sendable {
+    case refresh, created, changed, moved, resized, hidden, removedFromSpace, closed, focus, spaces,
+      missionControl
+  }
 
   static func decode(code: UInt32, data: UnsafeRawPointer?, count: Int) -> WindowEvent? {
     if code == 1204 { return WindowEvent(kind: .missionControl, windowID: nil) }
@@ -73,7 +76,17 @@ struct WindowEvent: Sendable, Equatable {
     guard let data, count >= offset + 4 else { return nil }
     let id = data.loadUnaligned(fromByteOffset: offset, as: UInt32.self)
     guard id != 0 else { return nil }
-    let kind: Kind = code == 1326 ? .closed : (code == 1325 ? .created : .changed)
+    let kind: Kind
+    switch code {
+    case 804: kind = .closed
+    case 806: kind = .moved
+    case 807: kind = .resized
+    case 816: kind = .hidden
+    case 1325: kind = .created
+    case 1326: kind = .removedFromSpace
+    case 723, 1322: kind = .focus
+    default: kind = .changed
+    }
     return WindowEvent(kind: kind, windowID: id)
   }
   let kind: Kind

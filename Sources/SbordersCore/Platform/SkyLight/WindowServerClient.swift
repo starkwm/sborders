@@ -3,6 +3,8 @@ import AppKit
 @MainActor
 final class WindowServerClient {
   let api: SkyLight
+  private(set) var geometryQueryCount = 0
+  private(set) var metadataQueryCount = 0
   private(set) var visibleSpaces = Set<UInt64>()
   private var allSpaces: [UInt64] = []
 
@@ -43,6 +45,35 @@ final class WindowServerClient {
 
   func snapshot(id: UInt32) -> WindowSnapshot? { snapshots(ids: [id] as CFArray).first }
 
+  /// Ordinary geometry notifications need only bounds. Refresh metadata when the
+  /// window crosses displays, including displays with the same backing scale.
+  func geometry(of previous: WindowSnapshot) -> WindowSnapshot? {
+    if !previous.visible { return snapshot(id: previous.id) }
+    geometryQueryCount += 1
+    var frame = CGRect.zero
+    guard api.getBounds(api.connection, previous.id, &frame) == 0,
+      frame.width > 0, frame.height > 0,
+      [frame.minX, frame.minY, frame.width, frame.height].allSatisfy(\.isFinite)
+    else { return nil }
+    if displayIntersecting(frame) != displayIntersecting(previous.frame) {
+      try? refreshSpaces()
+      return snapshot(id: previous.id)
+    }
+    var result = previous
+    result.frame = frame
+    return result
+  }
+
+  /// Unlike owner queries, the complete list also establishes liveness after
+  /// Space removal without mistaking an offscreen window for a closed one.
+  func liveWindowIDs() -> Set<UInt32>? {
+    guard
+      let rows = CGWindowListCopyWindowInfo([.optionAll, .excludeDesktopElements], 0)
+        as? [[String: Any]]
+    else { return nil }
+    return Set(rows.compactMap { ($0[kCGWindowNumber as String] as? NSNumber)?.uint32Value })
+  }
+
   func exists(id: UInt32) -> Bool {
     var owner: Int32 = 0
     return api.getOwner(api.connection, id, &owner) == 0 && owner != 0
@@ -70,6 +101,7 @@ final class WindowServerClient {
   }
 
   private func snapshots(ids: CFArray) -> [WindowSnapshot] {
+    metadataQueryCount += 1
     guard let query = api.query(api.connection, ids, 0)?.takeRetainedValue(),
       let iterator = api.iterator(query)?.takeRetainedValue()
     else { return [] }

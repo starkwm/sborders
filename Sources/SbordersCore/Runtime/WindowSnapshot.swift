@@ -10,7 +10,7 @@ struct WindowSnapshot: Codable, Equatable, Sendable {
   let sublevel: Int32
   let spaces: [UInt64]
   let sticky: Bool
-  let visible: Bool
+  var visible: Bool
   let fullscreen: Bool
   let cornerRadius: Double
   let scale: Double
