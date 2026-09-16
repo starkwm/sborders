@@ -82,3 +82,46 @@ func fixtureWindow(id: UInt32 = 1, pid: Int32 = 10, visible: Bool = true, fullsc
   }
   #expect(WindowEvent.decode(code: 1508, data: nil, count: 0)?.kind == .focus)
 }
+
+@Test func spaceRemovalPreservesLiveWindowsUntilTheyReturn() {
+  var state = BorderCoordinator()
+  state.update(fixtureWindow())
+  state.reconcile([], liveIDs: [1], preservingIDs: [1])
+  #expect(state.windows[1]?.visible == false)
+  #expect(state.visibleWindows(configuration: Configuration()).isEmpty)
+  state.reconcile([fixtureWindow()], liveIDs: [1])
+  #expect(state.windows[1]?.visible == true)
+  state.reconcile([], liveIDs: [], preservingIDs: [1])
+  #expect(state.windows.isEmpty)
+}
+
+@Test func failedLivenessQueryDoesNotDestroyTrackedWindows() {
+  var state = BorderCoordinator()
+  state.update(fixtureWindow())
+  state.reconcile([], liveIDs: nil, preservingIDs: [1])
+  #expect(state.windows[1]?.visible == false)
+}
+
+@Test func geometryAndLifecycleNotificationsRemainDistinct() {
+  let cases: [(UInt32, WindowEvent.Kind)] = [
+    (804, .closed), (806, .moved), (807, .resized), (808, .changed),
+    (811, .changed), (815, .changed), (816, .hidden), (1322, .focus),
+    (723, .focus), (1325, .created), (1326, .removedFromSpace),
+  ]
+  for (code, kind) in cases {
+    var words: [UInt32] = code == 1325 || code == 1326 ? [0, 0, 42] : [42]
+    words.withUnsafeMutableBytes { bytes in
+      let event = WindowEvent.decode(code: code, data: bytes.baseAddress, count: bytes.count)
+      #expect(event == WindowEvent(kind: kind, windowID: 42))
+    }
+  }
+}
+
+@Test func expiredTransferDoesNotRetainClosedButStillAllocatedWindows() {
+  var state = BorderCoordinator()
+  state.update(fixtureWindow())
+  state.reconcile([], liveIDs: [1], preservingIDs: [1])
+  #expect(state.windows[1] != nil)
+  state.reconcile([], liveIDs: [1])
+  #expect(state.windows.isEmpty)
+}

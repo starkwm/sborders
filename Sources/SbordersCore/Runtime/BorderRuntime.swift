@@ -13,6 +13,10 @@ public final class BorderRuntime {
   private var ownedIDs = Set<UInt32>()
   private var observedIDs = Set<UInt32>()
   private var pending = Set<UInt32>()
+  private var geometryPending = Set<UInt32>()
+  private var focusPending = false
+  private let transferPending = PendingWindowTransfers()
+  private var resizeChecks: [UInt32: Task<Void, Never>] = [:]
   private var refreshAll = false
   private var scheduled = false
   private var running = false
@@ -25,6 +29,7 @@ public final class BorderRuntime {
   private var lastBackendError: String?
   private var eventCount = 0
   private var reconcileCount = 0
+  private var focusQueryCount = 0
   private var suspended = false
 
   public init(configurationURL: URL, allowMissingConfiguration: Bool) throws {
@@ -90,6 +95,9 @@ public final class BorderRuntime {
     running = false
     retry?.cancel()
     retry = nil
+    transferPending.removeAll()
+    for check in resizeChecks.values { check.cancel() }
+    resizeChecks = [:]
     events.stop()
     missionControl.stop()
     try? server.subscribe(ids: [])
@@ -132,21 +140,54 @@ public final class BorderRuntime {
       return
     }
     if event.kind == .created, let id = event.windowID { missionControl.windowCreated(id: id) }
-    if event.kind == .focus || event.kind == .spaces || event.kind == .refresh {
+    if (event.kind == .focus && event.windowID == nil) || event.kind == .spaces
+      || event.kind == .refresh
+    {
       missionControl.checkForEntry()
     }
+    if event.kind == .hidden, let id = event.windowID {
+      resizeChecks.removeValue(forKey: id)?.cancel()
+      borders[id]?.hide(target: id)
+    }
     if event.kind == .closed, let id = event.windowID {
+      transferPending.remove(id)
       coordinator.remove(id)
       borders.removeValue(forKey: id)?.close()
       pending.remove(id)
+      geometryPending.remove(id)
+      resizeChecks.removeValue(forKey: id)?.cancel()
       do { try updateSubscriptions() } catch { report(error) }
       updateOwnedIDs()
+    } else if event.kind == .removedFromSpace, let id = event.windowID {
+      transferPending.insert(id) { [weak self] in
+        guard let self, self.running else { return }
+        self.refreshAll = true
+        self.schedule()
+      }
+      resizeChecks.removeValue(forKey: id)?.cancel()
+      if var window = coordinator.windows[id] {
+        window.visible = false
+        coordinator.update(window)
+      }
+      borders[id]?.hide(target: id)
+      refreshAll = true
     } else if let id = event.windowID {
-      pending.insert(id)
+      if event.kind == .moved || event.kind == .resized {
+        geometryPending.insert(id)
+        if event.kind == .resized { scheduleResizeCheck(id: id) }
+      } else if event.kind != .focus {
+        pending.insert(id)
+      }
     }
+    if event.kind != .moved && event.kind != .resized { focusPending = true }
     if event.kind == .spaces || event.kind == .refresh { refreshAll = true }
     schedule()
-    if event.kind == .spaces || event.kind == .focus || event.kind == .closed { scheduleRetry() }
+    if event.kind == .spaces || (event.kind == .focus && event.windowID == nil)
+      || event.kind == .closed
+      || event.kind == .removedFromSpace
+    {
+      scheduleRetry()
+    }
   }
 
   private func schedule() {
@@ -160,14 +201,35 @@ public final class BorderRuntime {
         if self.refreshAll {
           self.refreshAll = false
           self.pending = []
+          self.geometryPending = []
+          self.focusPending = false
           try self.reconcile()
         } else {
           let ids = self.pending
+          let geometryIDs = self.geometryPending.subtracting(ids)
+          let needsFocus = self.focusPending
           self.pending = []
+          self.geometryPending = []
+          self.focusPending = false
+          for id in geometryIDs {
+            guard let previous = self.coordinator.windows[id] else { continue }
+            if let snapshot = self.server.geometry(of: previous) {
+              self.coordinator.update(snapshot)
+            } else {
+              var hidden = previous
+              hidden.visible = false
+              self.coordinator.update(hidden)
+            }
+          }
           let previous = Set(self.coordinator.windows.keys)
           for id in ids {
             if let snapshot = self.server.snapshot(id: id) {
               self.coordinator.update(snapshot)
+            } else if self.transferPending.ids.contains(id),
+              var hidden = self.coordinator.windows[id]
+            {
+              hidden.visible = false
+              self.coordinator.update(hidden)
             } else {
               self.coordinator.remove(id)
             }
@@ -175,15 +237,27 @@ public final class BorderRuntime {
           if previous != Set(self.coordinator.windows.keys) {
             try self.updateSubscriptions()
           }
-          self.resolveFocus()
-          try self.render()
+          if needsFocus { self.resolveFocus() }
+          try self.render(only: needsFocus ? nil : ids.union(geometryIDs))
         }
       } catch { self.report(error) }
     }
   }
 
   private func reconcile() throws {
-    coordinator.replace(try server.windows())
+    let snapshots = try server.windows()
+    coordinator.reconcile(
+      snapshots,
+      liveIDs: transferPending.ids.isEmpty ? nil : server.liveWindowIDs(),
+      preservingIDs: transferPending.ids
+    )
+    for id in transferPending.ids
+    where coordinator.windows[id] == nil || coordinator.windows[id]?.visible == true {
+      transferPending.remove(id)
+    }
+    for id in Array(resizeChecks.keys) where coordinator.windows[id] == nil {
+      resizeChecks.removeValue(forKey: id)?.cancel()
+    }
     try updateSubscriptions()
     resolveFocus()
     try render()
@@ -200,13 +274,14 @@ public final class BorderRuntime {
   }
 
   private func resolveFocus() {
+    focusQueryCount += 1
     let id =
       store.configuration.focusMode == .accessibility
       ? accessibility?.focusedWindow() : server.frontWindow(in: Array(coordinator.windows.values))
     coordinator.focus(id)
   }
 
-  private func render() throws {
+  private func render(only ids: Set<UInt32>? = nil) throws {
     let targets =
       suspended || missionControl.isActive
       ? [] : coordinator.visibleWindows(configuration: store.configuration)
@@ -217,20 +292,34 @@ public final class BorderRuntime {
     {
       borders.removeValue(forKey: id)?.close()
     }
-    for (id, border) in borders where !visible.contains(id) { border.hide(target: id) }
+    for (id, border) in borders where !visible.contains(id) && (ids?.contains(id) ?? true) {
+      border.hide(target: id)
+    }
     defer { updateOwnedIDs() }
-    for target in targets {
+    for target in targets where ids?.contains(target.id) ?? true {
       let border = borders[target.id] ?? BorderWindow(api: server.api)
       borders[target.id] = border
       try border.update(
         target: target,
         configuration: store.configuration,
-        focused: coordinator.focusedID == target.id
+        focused: coordinator.focusedID == target.id,
+        forceOrder: ids == nil
       )
     }
   }
 
   private func updateOwnedIDs() { ownedIDs = Set(borders.values.map(\.id).filter { $0 != 0 }) }
+
+  private func scheduleResizeCheck(id: UInt32) {
+    resizeChecks[id]?.cancel()
+    resizeChecks[id] = Task { [weak self] in
+      do { try await Task.sleep(for: .milliseconds(32)) } catch { return }
+      guard let self, self.running else { return }
+      self.resizeChecks.removeValue(forKey: id)
+      self.geometryPending.insert(id)
+      self.schedule()
+    }
+  }
 
   private func scheduleRetry() {
     retry?.cancel()
@@ -340,7 +429,9 @@ public final class BorderRuntime {
                 borderFrame: borders[window.id]?.currentFrame,
                 borderVisible: borders[window.id]?.isVisible ?? false,
                 borderSublevel: borders[window.id]?.sublevel,
-                redrawCount: borders[window.id]?.redrawCount ?? 0
+                redrawCount: borders[window.id]?.redrawCount ?? 0,
+                transactionCount: borders[window.id]?.transactionCount ?? 0,
+                contextCreationCount: borders[window.id]?.contextCreationCount ?? 0
               )
             }
           )
@@ -352,6 +443,9 @@ public final class BorderRuntime {
               borderCount: borders.count,
               eventCount: eventCount,
               reconcileCount: reconcileCount,
+              geometryQueryCount: server.geometryQueryCount,
+              metadataQueryCount: server.metadataQueryCount,
+              focusQueryCount: focusQueryCount,
               configurationPath: store.url.path,
               hasOverrides: store.hasOverrides,
               configurationError: store.lastError,
@@ -406,6 +500,8 @@ private struct WindowStatus: Encodable {
   let borderVisible: Bool
   let borderSublevel: Int32?
   let redrawCount: Int
+  let transactionCount: Int
+  let contextCreationCount: Int
 }
 
 private struct Diagnostics: Encodable {
@@ -414,6 +510,9 @@ private struct Diagnostics: Encodable {
   let borderCount: Int
   let eventCount: Int
   let reconcileCount: Int
+  let geometryQueryCount: Int
+  let metadataQueryCount: Int
+  let focusQueryCount: Int
   let configurationPath: String
   let hasOverrides: Bool
   let configurationError: String?

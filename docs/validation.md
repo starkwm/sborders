@@ -62,3 +62,15 @@ The following have not been established by this run:
 - Window-manager animation proxies, which are outside the first version.
 
 The local test processes were stopped after validation. No login service was installed and no release was published.
+
+## Tracking improvements
+
+Checked on 16 September 2026 with the debug build:
+
+- Swift Testing passed all 34 tests across both targets, including event classification, transfer recovery, failed liveness queries, and expiration of retained closed windows.
+- Strict Swift formatting, whitespace checks, and the CLI smoke script passed.
+- The tracking-only desktop fixture passed seven checks: initial geometry and ordering; movement without metadata/focus queries, repainting, context recreation, or unrelated border transactions; resize context recreation and final bounds; combined move/resize; hide/show; no idle queries or transactions; and closed-window removal.
+
+The full desktop fixture stopped at initial focus on both the unchanged `72b058b` baseline and the modified build. The tracking-only mode does not require activation and does not establish focus behavior. Multi-display transfers, mixed backing scales, and presented-pixel synchronization still need live verification. Context counters establish recreation, not visual correctness of every resized pixel.
+
+Checked again on 17 September 2026 after giving each pending transfer an independent 380 ms expiry. All 37 Swift tests and strict formatting passed. The added tests cover repeated notifications without extending retention, cancellation followed by a new transfer for the same window, and shutdown cancellation. Desktop checks were not rerun.
