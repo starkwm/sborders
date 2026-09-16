@@ -10,7 +10,7 @@ AppKit's native event loop delivers WindowServer notifications. A bare `CFRunLoo
 
 Mission Control temporarily suppresses rendering without changing `enabled`. WindowServer event 1204 covers the older Dock path. Window creation and focus events also check for macOS 27's WindowManager overview. Detection uses the owning process and window layer, so it needs no window titles or additional permissions. Entry checks are bounded; while the overview is active, a 100 ms timer watches for its disappearance. Exit requires two absent samples and triggers fresh window reconciliation. Shutdown cancels the timer.
 
-Movement preserves the existing drawing. Size, scale, colour, and radius changes redraw. The coordinator tracks application windows separately from notification subscriptions so hiding a window does not prevent its later return.
+Movement reads current bounds and updates only the affected border, preserving its drawing and avoiding focus and metadata queries. Crossing displays refreshes metadata and backing scale. Duplicate geometry does not submit a transaction. Size and scale changes recreate the drawing context before painting; colour and radius changes redraw. Resize notifications schedule a cancellable final bounds check after 32 ms without another resize. Space-scoped removal hides the border while a complete window inventory establishes liveness; a still-live window retains its border during the bounded transfer retries. Missing windows are released when that grace period expires, since closed AppKit windows can retain server IDs. The coordinator tracks application windows separately from notification subscriptions so hiding a window does not prevent its later return.
 
 ## Build and tests
 

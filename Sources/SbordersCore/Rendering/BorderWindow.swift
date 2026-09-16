@@ -4,6 +4,8 @@ import AppKit
 final class BorderWindow {
   private(set) var id: UInt32 = 0
   private(set) var redrawCount = 0
+  private(set) var transactionCount = 0
+  private(set) var contextCreationCount = 0
   private(set) var frame = CGRect.zero
 
   var currentFrame: CGRect? {
@@ -22,10 +24,17 @@ final class BorderWindow {
   private var context: CGContext?
   private var spaces: [UInt64] = []
   private var drawing: Drawing?
+  private var appliedTarget: WindowSnapshot?
+  private var orderedIn = false
 
   init(api: SkyLight) { self.api = api }
 
-  func update(target: WindowSnapshot, configuration: Configuration, focused: Bool) throws {
+  func update(
+    target: WindowSnapshot,
+    configuration: Configuration,
+    focused: Bool,
+    forceOrder: Bool = false
+  ) throws {
     guard
       let geometry = BorderGeometry(
         target: target.frame,
@@ -44,6 +53,14 @@ final class BorderWindow {
       style: configuration.style,
       color: focused ? configuration.activeColor : configuration.inactiveColor
     )
+    if orderedIn && drawing == next, var previous = appliedTarget {
+      if previous == target && !forceOrder { return }
+      previous.frame = target.frame
+      if previous == target && !forceOrder {
+        try position(target: target, frame: geometry.frame)
+        return
+      }
+    }
     if id == 0 {
       var local = CGRect(origin: .zero, size: geometry.frame.size)
       let region = try region(&local)
@@ -56,11 +73,6 @@ final class BorderWindow {
         ?? []).map(\.uint64Value)
       api.setOpacity(api.connection, id, false)
       api.shadow(id, ["com.apple.WindowShadowDensity": 0] as CFDictionary)
-      context = api.createContext(api.connection, id, nil)?.takeRetainedValue()
-      guard context != nil else {
-        close()
-        throw MessageError.message("Cannot create a border drawing context.")
-      }
     }
     var tags: UInt64 = (1 << 1) | (1 << 9) | (1 << 18)
     if target.sticky { tags |= 1 << 11 }
@@ -91,28 +103,36 @@ final class BorderWindow {
         try region(&local)
       )
     }
+    // Rebind after shape or resolution changes so drawing covers the current
+    // backing store, including newly exposed pixels when the window grows.
+    if context == nil || drawing?.size != next.size || drawing?.scale != next.scale {
+      guard let replacement = api.createContext(api.connection, id, nil)?.takeRetainedValue() else {
+        hide(target: target.id)
+        context = nil
+        drawing = nil
+        frame = .zero
+        throw MessageError.message("Cannot create a border drawing context.")
+      }
+      context = replacement
+      contextCreationCount += 1
+    }
     if drawing != next {
       draw(geometry, drawing: next)
       drawing = next
       redrawCount += 1
     }
-    guard let transaction = api.transaction(api.connection)?.takeRetainedValue() else {
-      throw MessageError.message("Cannot begin border transaction.")
-    }
-    api.move(transaction, id, geometry.frame.origin)
-    api.setLevel(transaction, id, target.level)
-    api.setSublevel(transaction, id, target.sublevel)
-    api.order(transaction, id, -1, target.id)
-    api.commit(transaction, 0)
-    frame = geometry.frame
+    try position(target: target, frame: geometry.frame)
   }
 
   func hide(target: UInt32) {
-    guard id != 0, let transaction = api.transaction(api.connection)?.takeRetainedValue() else {
+    guard orderedIn, id != 0, let transaction = api.transaction(api.connection)?.takeRetainedValue()
+    else {
       return
     }
+    orderedIn = false
     api.order(transaction, id, 0, target)
     api.commit(transaction, 0)
+    transactionCount += 1
   }
 
   func close() {
@@ -121,7 +141,26 @@ final class BorderWindow {
     id = 0
     spaces = []
     drawing = nil
+    appliedTarget = nil
+    orderedIn = false
     frame = .zero
+  }
+
+  private func position(target: WindowSnapshot, frame: CGRect) throws {
+    guard let transaction = api.transaction(api.connection)?.takeRetainedValue() else {
+      throw MessageError.message("Cannot begin border transaction.")
+    }
+    api.move(transaction, id, frame.origin)
+    if appliedTarget?.level != target.level { api.setLevel(transaction, id, target.level) }
+    if appliedTarget?.sublevel != target.sublevel {
+      api.setSublevel(transaction, id, target.sublevel)
+    }
+    api.order(transaction, id, -1, target.id)
+    api.commit(transaction, 0)
+    transactionCount += 1
+    self.frame = frame
+    appliedTarget = target
+    orderedIn = true
   }
 
   private func region(_ rect: inout CGRect) throws -> CFTypeRef {

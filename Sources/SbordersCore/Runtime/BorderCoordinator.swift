@@ -10,6 +10,25 @@ struct BorderCoordinator {
     if let focusedID, windows[focusedID] == nil { self.focusedID = nil }
   }
 
+  /// A Space-scoped disappearance is not proof of closure. Keep a hidden
+  /// snapshot while the complete server inventory still contains its ID.
+  mutating func reconcile(
+    _ snapshots: [WindowSnapshot],
+    liveIDs: Set<UInt32>?,
+    preservingIDs: Set<UInt32> = []
+  ) {
+    var combined = snapshots
+    let found = Set(snapshots.map(\.id))
+    for var previous in windows.values
+    where preservingIDs.contains(previous.id) && !found.contains(previous.id)
+      && (liveIDs?.contains(previous.id) ?? true)
+    {
+      previous.visible = false
+      combined.append(previous)
+    }
+    replace(combined)
+  }
+
   mutating func update(_ snapshot: WindowSnapshot) { windows[snapshot.id] = snapshot }
 
   mutating func remove(_ id: UInt32) {

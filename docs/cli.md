@@ -38,6 +38,8 @@ Queries return an object with `ok`, a `value` on successful queries, and `error`
 
 `query --diagnostics` includes the daemon PID, OS version, window and border counts, event and reconciliation counts, selected configuration path, runtime override status, and the latest configuration or backend error. `missionControlActive` reports temporary overview suppression; `enabled` in the configuration remains unchanged. Border count includes any retained hidden border windows.
 
+`geometryQueryCount`, `metadataQueryCount`, and `focusQueryCount` in diagnostics distinguish movement work from full queries. Window diagnostics include `transactionCount`, `redrawCount`, and `contextCreationCount`. Compare counters before and after a settled drag to check that unrelated borders are untouched and movement reuses the backing context. These counters measure submitted work, not presentation latency.
+
 ## Stop
 
 `stop` acknowledges the request before shutdown. The daemon unregisters notifications, cancels file watchers, closes borders, and removes its socket. SIGINT and SIGTERM use the same cleanup path. The lock file can remain on disk after exit; the operating system releases its lock when the descriptor closes.
