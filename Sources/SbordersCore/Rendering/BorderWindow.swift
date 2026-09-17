@@ -57,11 +57,11 @@ final class BorderWindow {
       color: focused ? configuration.activeColor : configuration.inactiveColor
     )
 
-    if orderedIn && drawing == next, var previous = appliedTarget {
-      if previous == target && !forceOrder { return }
+    if orderedIn && drawing == next && !forceOrder, var previous = appliedTarget {
+      if previous == target { return }
       previous.frame = target.frame
 
-      if previous == target && !forceOrder {
+      if previous == target {
         try position(target: target, frame: geometry.frame)
         return
       }
