@@ -2,10 +2,10 @@ import Testing
 
 @testable import SbordersCore
 
-@Test @MainActor func repeatedTransferNotificationsKeepTheOriginalExpiry() async {
-  let transfers = PendingWindowTransfers(gracePeriod: .milliseconds(10))
+@Test @MainActor func repeatedTransferKeepsDeadline() async {
+  let transfers = WindowTransfers(gracePeriod: .milliseconds(10))
   var state = BorderCoordinator()
-  state.update(fixtureWindow())
+  state.update(window())
   var expirations = 0
   let expiration = transfers.insert(1) {
     expirations += 1
@@ -24,8 +24,8 @@ import Testing
   #expect(state.windows.isEmpty)
 }
 
-@Test @MainActor func cancellingATransferDoesNotExpireItsReplacement() async {
-  let transfers = PendingWindowTransfers(gracePeriod: .milliseconds(10))
+@Test @MainActor func cancellationPreservesReplacement() async {
+  let transfers = WindowTransfers(gracePeriod: .milliseconds(10))
   let cancelled = transfers.insert(1) { Issue.record("A cancelled transfer expired.") }
   transfers.remove(1)
   var expired = false
@@ -37,8 +37,8 @@ import Testing
   #expect(transfers.ids.isEmpty)
 }
 
-@Test @MainActor func stoppingTransfersCancelsEveryExpiry() async {
-  let transfers = PendingWindowTransfers(gracePeriod: .milliseconds(10))
+@Test @MainActor func cancelsAllTransfers() async {
+  let transfers = WindowTransfers(gracePeriod: .milliseconds(10))
   let first = transfers.insert(1) { Issue.record("A stopped transfer expired.") }
   let second = transfers.insert(2) { Issue.record("A stopped transfer expired.") }
   transfers.removeAll()

@@ -9,7 +9,7 @@ final class BorderWindow {
 
   var ids: [UInt32] { surfaces.map(\.id) }
 
-  var currentFrame: CGRect? {
+  var frame: CGRect? {
     guard !surfaces.isEmpty else { return nil }
     var result = CGRect.null
 

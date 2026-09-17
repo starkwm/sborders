@@ -7,7 +7,7 @@ import Testing
   #expect(try decode("{}") == Configuration())
 }
 
-@Test func jsoncKeepsStringsAndAllowsCommentsAndTrailingCommas() throws {
+@Test func decodesJSONC() throws {
   let config = try decode(
     #"""
     {
@@ -44,7 +44,7 @@ func rejectsInvalidConfiguration(_ json: String) {
   #expect(throws: (any Error).self) { try decode(json) }
 }
 
-@Test func runtimeSettingsValidateBeforeChangingState() throws {
+@Test func validatesSettings() throws {
   let original = Configuration()
 
   #expect(throws: (any Error).self) { try original.setting("width", value: "-2") }
@@ -52,7 +52,7 @@ func rejectsInvalidConfiguration(_ json: String) {
   #expect(try original.setting("enabled", value: "false").enabled == false)
 }
 
-@Test @MainActor func failedReloadRetainsSettingsAndSuccessfulReloadClearsOverrides() throws {
+@Test @MainActor func reloadPreservesValidSettings() throws {
   let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
   try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
   defer { try? FileManager.default.removeItem(at: directory) }
@@ -75,7 +75,7 @@ func rejectsInvalidConfiguration(_ json: String) {
   #expect(store.lastError == nil)
 }
 
-@Test @MainActor func missingDefaultAndExplicitFilesDiffer() throws {
+@Test @MainActor func missingFilePolicy() throws {
   let url = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString + ".json")
 
   let store = try ConfigurationStore(url: url, allowMissing: true)
@@ -127,7 +127,7 @@ func rejectsInvalidConfiguration(_ json: String) {
   #expect(!store.hasOverrides)
 }
 
-@Test func jsoncPathTakesPrecedenceEvenWhenInvalid() throws {
+@Test func prefersJSONC() throws {
   let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
   try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
   defer { try? FileManager.default.removeItem(at: directory) }
@@ -141,13 +141,13 @@ func rejectsInvalidConfiguration(_ json: String) {
   }
 }
 
-@Test func runtimeMatcherValuesRejectDuplicateKeys() {
+@Test func rejectsDuplicateMatcherKeys() {
   #expect(throws: (any Error).self) {
     try Configuration().setting("includeApps", value: #"[{"bundleID":"a","bundleID":"b"}]"#)
   }
 }
 
-@Test @MainActor func rejectedRuntimeSettingRetainsConfigurationAndOverrides() throws {
+@Test @MainActor func rejectedSettingPreservesOverrides() throws {
   let url = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString + ".json")
   let store = try ConfigurationStore(url: url, allowMissing: true)
   for hasOverrides in [false, true] {

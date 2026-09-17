@@ -2,7 +2,7 @@ import Foundation
 
 /// Keeps each transfer's deadline independent of reconciliation retries.
 @MainActor
-final class PendingWindowTransfers {
+final class WindowTransfers {
   var ids: Set<UInt32> { Set(expirations.keys) }
 
   private let gracePeriod: Duration

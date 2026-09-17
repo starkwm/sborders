@@ -3,7 +3,7 @@ import Testing
 
 @testable import SbordersCore
 
-@Test func geometryPreservesTargetCutoutAcrossNegativeCoordinates() throws {
+@Test func preservesTargetCutout() throws {
   let target = CGRect(x: -1000, y: -200, width: 400, height: 300)
   let geometry = try #require(BorderGeometry(target: target, width: 4, radius: 16))
 
@@ -12,7 +12,7 @@ import Testing
   #expect(geometry.outer.width == 408)
 }
 
-@Test func tinyGeometryAndInvalidFramesAreHandled() throws {
+@Test func handlesSmallAndInvalidFrames() throws {
   #expect(
     BorderGeometry(target: CGRect(x: 0, y: 0, width: 1, height: 1), width: 4, radius: 16) == nil
   )
@@ -45,7 +45,7 @@ import Testing
 }
 
 @Test(arguments: [Configuration.Style.round, .square])
-func rendererLeavesTheWindowInteriorAndPaddingTransparent(_ style: Configuration.Style) throws {
+func drawsOnlyTheBorder(_ style: Configuration.Style) throws {
   let geometry = try #require(
     BorderGeometry(target: CGRect(x: 0, y: 0, width: 40, height: 30), width: 4, radius: 8)
   )
@@ -75,7 +75,7 @@ func rendererLeavesTheWindowInteriorAndPaddingTransparent(_ style: Configuration
 }
 
 @Test(arguments: [Configuration.Style.round, .square], [1.0, 2.0])
-func tiledRendererMatchesFullWindowPixels(style: Configuration.Style, scale: Double) throws {
+func tilesMatchFullWindow(style: Configuration.Style, scale: Double) throws {
   for size in [
     CGSize(width: 80, height: 60), CGSize(width: 80.25, height: 60.75),
     CGSize(width: 8, height: 10),
@@ -130,7 +130,7 @@ func tiledRendererMatchesFullWindowPixels(style: Configuration.Style, scale: Dou
   }
 }
 
-@Test func largeWindowTilesExcludeMostOfTheEmptyInterior() throws {
+@Test func tilesExcludeEmptyInterior() throws {
   let geometry = try #require(
     BorderGeometry(target: CGRect(x: 0, y: 0, width: 1500, height: 1000), width: 4, radius: 9)
   )

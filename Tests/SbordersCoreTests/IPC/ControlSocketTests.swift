@@ -5,7 +5,7 @@ import Testing
 @testable import SbordersCore
 
 @Test(arguments: ["stop", "query"])
-func onlySuccessfulStopRepliesTriggerShutdown(command: String) async throws {
+func stopsOnlyAfterSuccessfulStop(command: String) async throws {
   let directory = try socketDirectory()
   defer { try? FileManager.default.removeItem(at: directory) }
 
