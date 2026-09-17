@@ -102,3 +102,27 @@ func rejectsInvalidConfiguration(_ json: String) {
     try Configuration().setting("includeApps", value: #"[{"bundleID":"a","bundleID":"b"}]"#)
   }
 }
+
+@Test @MainActor func rejectedRuntimeSettingRetainsConfigurationAndOverrides() throws {
+  let url = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString + ".json")
+  let store = try ConfigurationStore(url: url, allowMissing: true)
+  for hasOverrides in [false, true] {
+    if hasOverrides { try store.set("width", value: "6") }
+    let original = store.configuration
+    #expect(throws: MessageError.self) {
+      try store.set("focusMode", value: "accessibility") { candidate in
+        #expect(candidate.focusMode == .accessibility)
+        #expect(store.configuration == original)
+        throw MessageError.message("Permission denied.")
+      }
+    }
+    #expect(store.configuration == original)
+    #expect(store.hasOverrides == hasOverrides)
+  }
+  try store.set("width", value: "7") { candidate in
+    #expect(candidate.width == 7)
+    #expect(store.configuration.width == 6)
+  }
+  #expect(store.configuration.width == 7)
+  #expect(store.hasOverrides)
+}
