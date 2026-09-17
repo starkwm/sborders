@@ -1,4 +1,5 @@
 import Foundation
+import StarkConfiguration
 
 private func rejectUnknownKeys(_ decoder: any Decoder, allowed: [String]) throws {
   let values = try decoder.container(keyedBy: AnyKey.self)
@@ -77,7 +78,7 @@ struct Configuration: Codable, Equatable, Sendable {
         throw MessageError.message("Invalid setting value.")
       }
       let parsed = try JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed])
-      try ConfigurationDecoder.rejectDuplicateKeys(data)
+      try JSONC.rejectDuplicateKeys(data)
       object[key] = parsed
     }
     return try ConfigurationDecoder.decode(from: JSONSerialization.data(withJSONObject: object))

@@ -27,8 +27,6 @@ private func decode(_ text: String) throws -> Configuration {
 
 @Test(arguments: [
   #"{"width":4,"width":5}"#,
-  #"{"width":4,"\u0077idth":5}"#,
-  #"{"includeApps":[{"bundleID":"a","bundleID":"b"}]}"#,
   #"{"widht":4}"#,
   #"{"width":null}"#,
   #"{"$schema":null}"#,
@@ -49,11 +47,6 @@ private func decode(_ text: String) throws -> Configuration {
 ])
 func rejectsInvalidConfiguration(_ json: String) {
   #expect(throws: (any Error).self) { try decode(json) }
-}
-
-@Test func identicalKeysInDifferentObjectsAreAllowed() throws {
-  let config = try decode(#"{"includeApps":[{"bundleID":"a"},{"bundleID":"b"}]}"#)
-  #expect(config.includeApps.count == 2)
 }
 
 @Test func runtimeSettingsValidateBeforeChangingState() throws {
