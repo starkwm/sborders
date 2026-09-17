@@ -42,7 +42,7 @@ Inclusion does not override the window eligibility checks. Attached windows, win
 
 ## Reload and overrides
 
-The daemon watches the selected file and its parent directory. Atomic editor saves work. After an invalid edit or file removal, it retains the last valid settings and reports `configurationError` in diagnostics. Restoring a valid file clears that error.
+The daemon watches the selected file and its parent directory. Atomic editor saves work. After an invalid edit or file removal, it retains the last valid settings and reports `configurationError` in diagnostics. Restoring a valid file clears that error, even when its contents match the last valid version.
 
 Runtime commands change the effective settings without writing the file:
 
