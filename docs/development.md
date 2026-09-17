@@ -2,7 +2,7 @@
 
 ## Structure
 
-`Sborders` contains ArgumentParser commands. `SbordersCore` contains configuration, IPC, platform access, the runtime, and drawing. Tests mirror those areas.
+`Sborders` contains ArgumentParser commands. `SbordersCore` contains configuration, IPC, platform access, the runtime, and drawing. `StarkConfiguration` provides JSONC decoding and file watching. `StarkIPC` provides socket transport and message types. Tests mirror the source folders.
 
 All native window state and drawing belong to the main actor. Socket work runs on a private serial queue and sends commands to that actor. WindowServer callbacks copy their small payloads before queueing work. The runtime coalesces updates by window ID and queries current state when processing them.
 
@@ -10,7 +10,9 @@ AppKit's native event loop delivers WindowServer notifications. A bare `CFRunLoo
 
 Mission Control temporarily suppresses rendering without changing `enabled`. WindowServer event 1204 covers the older Dock path. Window creation and focus events also check for macOS 27's WindowManager overview. Detection uses the owning process and window layer, so it needs no window titles or additional permissions. Entry checks are bounded; while the overview is active, a 100 ms timer watches for its disappearance. Exit requires two absent samples and triggers fresh window reconciliation. Shutdown cancels the timer.
 
-Movement reads current bounds and updates only the affected border, preserving its drawing and avoiding focus and metadata queries. Crossing displays refreshes metadata and backing scale. Duplicate geometry does not submit a transaction. Size and scale changes recreate the drawing context before painting; colour and radius changes redraw. Resize notifications schedule a cancellable final bounds check after 32 ms without another resize. Space-scoped removal hides the border while a complete window inventory establishes liveness; a still-live window retains its border during the bounded transfer retries. Missing windows are released when that grace period expires, since closed AppKit windows can retain server IDs. The coordinator tracks application windows separately from notification subscriptions so hiding a window does not prevent its later return.
+Movement reads current bounds and updates only the affected border, preserving its drawing and avoiding focus and metadata queries. Crossing displays refreshes metadata and backing scale. Duplicate geometry does not submit a transaction. Size and scale changes recreate the drawing context before painting; colour and radius changes redraw. Resize notifications schedule a cancellable final bounds check after 32 ms without another resize.
+
+When a window leaves a Space, the daemon hides its border and checks the complete window inventory. It retains a hidden snapshot for up to 380 ms while retrying discovery. Each window has its own deadline; repeated notifications do not extend it. When the deadline expires, reconciliation removes windows that are still missing, since closed AppKit windows can retain server IDs. The coordinator tracks application windows separately from notification subscriptions so hiding a window does not prevent its later return.
 
 ## Build and tests
 
@@ -30,7 +32,7 @@ Desktop checks require a logged-in macOS session. Check movement, resizing, focu
 
 See [validation](validation.md) for the checks run during the first implementation.
 
-macOS 26 is the deployment target. A deployment target alone does not prove compatibility. The current development machine runs macOS 27.0 build `26A428` with Swift 6.4. CI is configured for a macOS 26 runner, but its remote result is not available from this local implementation.
+macOS 26 is the deployment target. A deployment target alone does not prove compatibility. The current development machine runs macOS 27.0 build `26A428` with Swift 6.4. CI uses a macOS 26 runner. The local validation record does not establish its result.
 
 ## Remaining validation
 
