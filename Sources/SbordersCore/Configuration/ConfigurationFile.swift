@@ -35,6 +35,7 @@ public enum ConfigurationFile {
       }
 
       let path = context.codingPath.map(\.stringValue).joined(separator: ".")
+
       throw MessageError.message("\(path.isEmpty ? "$" : path): \(context.debugDescription)")
     }
   }
@@ -44,12 +45,14 @@ public enum ConfigurationFile {
 final class ConfigurationStore {
   private(set) var configuration: Configuration
   private(set) var lastError: String?
-  private(set) var fileData: Data?
   private(set) var hasOverrides = false
   let url: URL
 
+  private var fileData: Data?
+
   init(url: URL, allowMissing: Bool) throws {
     self.url = url
+
     do {
       let data = try Data(contentsOf: url)
       configuration = try ConfigurationFile.decode(data)
@@ -60,17 +63,26 @@ final class ConfigurationStore {
   }
 
   @discardableResult
-  func reload(validate: (Configuration) throws -> Void = { _ in }) throws -> Configuration {
+  func reload(
+    ifChanged: Bool = false,
+    validate: (Configuration) throws -> Void = { _ in }
+  ) throws -> Bool {
     do {
       let data = try Data(contentsOf: url)
+
+      if ifChanged && data == fileData && lastError == nil { return false }
+
       let candidate = try ConfigurationFile.decode(data)
       try validate(candidate)
+
       configuration = candidate
       fileData = data
       hasOverrides = false
       lastError = nil
 
-      return candidate
+      return true
+    } catch CocoaError.fileReadNoSuchFile where ifChanged && fileData == nil && lastError == nil {
+      return false
     } catch {
       lastError = error.localizedDescription
       throw error
@@ -84,6 +96,7 @@ final class ConfigurationStore {
   ) throws {
     let candidate = try configuration.setting(key, value: value)
     try validate(candidate)
+
     configuration = candidate
     hasOverrides = true
   }

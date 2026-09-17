@@ -448,18 +448,20 @@ public final class BorderRuntime {
   }
 
   private func configurationChanged() {
-    let data = try? Data(contentsOf: store.url)
-
-    guard data != store.fileData else { return }
-
-    do { try reload() } catch {
+    do { try reload(ifChanged: true) } catch {
       logger.error("Configuration reload failed: \(error.localizedDescription, privacy: .public)")
     }
   }
 
-  private func reload() throws {
-    try store.reload { candidate in try self.checkFocusMode(candidate, prompt: false) }
+  private func reload(ifChanged: Bool = false) throws {
+    let reloaded = try store.reload(ifChanged: ifChanged) { candidate in
+      try self.checkFocusMode(candidate, prompt: false)
+    }
+
+    guard reloaded else { return }
+
     resolveFocus()
+
     do { try render() } catch {
       report(error)
       throw error

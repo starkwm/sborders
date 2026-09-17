@@ -82,9 +82,53 @@ func rejectsInvalidConfiguration(_ json: String) {
 @Test @MainActor func missingDefaultAndExplicitFilesDiffer() throws {
   let url = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString + ".json")
 
-  #expect(try ConfigurationStore(url: url, allowMissing: true).configuration == Configuration())
+  let store = try ConfigurationStore(url: url, allowMissing: true)
+
+  #expect(store.configuration == Configuration())
+  #expect(try !store.reload(ifChanged: true))
+  #expect(store.lastError == nil)
   #expect(throws: (any Error).self) { try ConfigurationStore(url: url, allowMissing: false) }
   #expect(throws: (any Error).self) { try ConfigurationFile.validate(url: url) }
+}
+
+@Test @MainActor func unchangedFilePreservesOverrides() throws {
+  let url = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString + ".json")
+  try Data(#"{"width":5}"#.utf8).write(to: url)
+  defer { try? FileManager.default.removeItem(at: url) }
+
+  let store = try ConfigurationStore(url: url, allowMissing: false)
+  try store.set("width", value: "6")
+
+  #expect(try !store.reload(ifChanged: true))
+  #expect(store.configuration.width == 6)
+  #expect(store.hasOverrides)
+
+  #expect(try store.reload())
+  #expect(store.configuration.width == 5)
+  #expect(!store.hasOverrides)
+}
+
+@Test @MainActor func restoredFileClearsReloadError() throws {
+  let url = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString + ".json")
+  let original = Data(#"{"width":5}"#.utf8)
+  try original.write(to: url)
+  defer { try? FileManager.default.removeItem(at: url) }
+
+  let store = try ConfigurationStore(url: url, allowMissing: false)
+  try store.set("width", value: "6")
+  try Data(#"{"width":-1}"#.utf8).write(to: url)
+
+  #expect(throws: (any Error).self) { try store.reload(ifChanged: true) }
+  #expect(store.lastError != nil)
+  #expect(store.configuration.width == 6)
+  #expect(store.hasOverrides)
+
+  try original.write(to: url)
+
+  #expect(try store.reload(ifChanged: true))
+  #expect(store.lastError == nil)
+  #expect(store.configuration.width == 5)
+  #expect(!store.hasOverrides)
 }
 
 @Test func jsoncPathTakesPrecedenceEvenWhenInvalid() throws {
