@@ -4,7 +4,7 @@ import Testing
 @testable import SbordersCore
 
 private func decode(_ text: String) throws -> Configuration {
-  try ConfigurationDecoder.decode(from: Data(text.utf8))
+  try ConfigurationFile.decode(Data(text.utf8))
 }
 
 @Test func decodesDefaults() throws {
