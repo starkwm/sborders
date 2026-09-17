@@ -72,8 +72,14 @@ final class ConfigurationStore {
     }
   }
 
-  func set(_ key: String, value: String) throws {
-    configuration = try configuration.setting(key, value: value)
+  func set(
+    _ key: String,
+    value: String,
+    validate: (Configuration) throws -> Void = { _ in }
+  ) throws {
+    let candidate = try configuration.setting(key, value: value)
+    try validate(candidate)
+    configuration = candidate
     hasOverrides = true
   }
 }

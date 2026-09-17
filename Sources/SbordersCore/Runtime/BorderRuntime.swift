@@ -370,12 +370,9 @@ public final class BorderRuntime {
         guard request.arguments.count == 2 else {
           throw MessageError.message("set requires a property and value.")
         }
-        let candidate = try store.configuration.setting(
-          request.arguments[0],
-          value: request.arguments[1]
-        )
-        try checkFocusMode(candidate, prompt: true)
-        try store.set(request.arguments[0], value: request.arguments[1])
+        try store.set(request.arguments[0], value: request.arguments[1]) { candidate in
+          try self.checkFocusMode(candidate, prompt: true)
+        }
         resolveFocus()
         try render()
       case "stop": break
