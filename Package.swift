@@ -15,6 +15,7 @@ let package = Package(
       name: "Sborders",
       dependencies: [
         "SbordersCore", .product(name: "ArgumentParser", package: "swift-argument-parser"),
+        .product(name: "StarkIPC", package: "stark-ipc"),
       ],
       exclude: ["Version.swift.tmpl"]
     ),
@@ -26,7 +27,10 @@ let package = Package(
       ]
     ),
     .testTarget(name: "SbordersTests", dependencies: ["Sborders"]),
-    .testTarget(name: "SbordersCoreTests", dependencies: ["SbordersCore"]),
+    .testTarget(
+      name: "SbordersCoreTests",
+      dependencies: ["SbordersCore", .product(name: "StarkIPC", package: "stark-ipc")]
+    ),
   ],
   swiftLanguageModes: [.v6]
 )

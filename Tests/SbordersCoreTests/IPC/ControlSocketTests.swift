@@ -1,4 +1,5 @@
 import Foundation
+import StarkIPC
 import Testing
 
 @testable import SbordersCore
@@ -15,10 +16,9 @@ import Testing
   try server.start()
   defer { server.stop() }
   let response = try await Task.detached {
-    try ControlClient.request(
-      ControlRequest(command: "query", arguments: ["config"]),
-      socketPath: path
-    )
+    let client = try SocketClient(path: path, serviceName: "sborders")
+    try client.send(ControlRequest(command: "query", arguments: ["config"]))
+    return try client.receive(ControlResponse.self)
   }.value
   #expect(response.ok)
   #expect(response.value == .array([.string("query"), .string("config")]))
@@ -38,10 +38,9 @@ func onlySuccessfulStopRepliesTriggerShutdown(command: String) async throws {
       defer { server.stop() }
       for arguments in [["rejected"], []] {
         let response = try await Task.detached {
-          try ControlClient.request(
-            ControlRequest(command: command, arguments: arguments),
-            socketPath: path
-          )
+          let client = try SocketClient(path: path, serviceName: "sborders")
+          try client.send(ControlRequest(command: command, arguments: arguments))
+          return try client.receive(ControlResponse.self)
         }.value
         #expect(response.ok == arguments.isEmpty)
         #expect(response.error == arguments.first)
