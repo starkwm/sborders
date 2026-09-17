@@ -5,7 +5,11 @@ let package = Package(
   name: "sborders",
   platforms: [.macOS(.v26)],
   products: [.executable(name: "sborders", targets: ["Sborders"])],
-  dependencies: [.package(url: "https://github.com/apple/swift-argument-parser", from: "1.7.1")],
+  dependencies: [
+    .package(url: "https://github.com/apple/swift-argument-parser", from: "1.7.1"),
+    .package(url: "https://github.com/starkwm/stark-configuration", from: "0.0.1"),
+    .package(url: "https://github.com/starkwm/stark-ipc", from: "0.0.1"),
+  ],
   targets: [
     .executableTarget(
       name: "Sborders",
@@ -14,7 +18,13 @@ let package = Package(
       ],
       exclude: ["Version.swift.tmpl"]
     ),
-    .target(name: "SbordersCore"),
+    .target(
+      name: "SbordersCore",
+      dependencies: [
+        .product(name: "StarkConfiguration", package: "stark-configuration"),
+        .product(name: "StarkIPC", package: "stark-ipc"),
+      ]
+    ),
     .testTarget(name: "SbordersTests", dependencies: ["Sborders"]),
     .testTarget(name: "SbordersCoreTests", dependencies: ["SbordersCore"]),
   ],
