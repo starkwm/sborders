@@ -6,10 +6,14 @@ enum BorderRenderer {
     in context: CGContext,
     geometry: BorderGeometry,
     color: BorderColor,
-    style: Configuration.Style
+    style: Configuration.Style,
+    tile: CGRect? = nil
   ) {
     context.saveGState()
-    context.clear(CGRect(origin: .zero, size: geometry.frame.size))
+    let tile = tile ?? CGRect(origin: .zero, size: geometry.frame.size)
+    context.clear(CGRect(origin: .zero, size: tile.size))
+    context.clip(to: CGRect(origin: .zero, size: tile.size))
+    context.translateBy(x: -tile.minX, y: -tile.minY)
     let path = CGMutablePath()
 
     if style == .round {
