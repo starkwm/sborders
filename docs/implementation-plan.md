@@ -1,6 +1,6 @@
 # sborders implementation plan
 
-Status: first version implemented, 15 September 2026. This document preserves the original design. See [development](development.md) and [validation](validation.md) for the implemented behaviour and completed checks.
+The first version was implemented on 15 September 2026. This document preserves the original design, including proposals that changed during implementation. See [development](development.md) and [validation](validation.md) for the implemented behaviour and completed checks.
 
 The implementation uses AppKit's native event loop, the exported sublevel query, and current snapshots when draining coalesced events. It preserves notification subscriptions for temporarily hidden windows. The optional C bridge and packed Mach-message path were unnecessary on the tested system.
 
@@ -8,7 +8,7 @@ The implementation uses AppKit's native event loop, the exported sublevel query,
 
 Build `sborders` as a standalone Swift command-line daemon that draws borders around macOS windows. It should work alongside `swm`, `skbd`, and `sbar`, with no running window manager required.
 
-Use the sibling projects' SwiftPM structure and sbar-style JSONC configuration with explicit commands. The configuration choice is confirmed. Target macOS 26 or later, matching all three projects. Start with Swift tools 6.2 and Swift 6 language mode, matching `skbd` and `sbar`. `swm` now requires Swift 6.4, but sborders has no identified need for that requirement yet.
+Use the sibling projects' SwiftPM structure and sbar-style JSONC configuration with explicit commands. Target macOS 26 or later, matching all three projects. Start with Swift tools 6.2 and Swift 6 language mode, matching `skbd` and `sbar`. `swm` now requires Swift 6.4, but sborders has no identified need for that requirement yet.
 
 Use Core Graphics to draw borders and a small private WindowServer backend to track and order them. Keep application logic in Swift. A SwiftUI scene or settings app is unnecessary for this tool.
 
@@ -16,7 +16,7 @@ The first milestone must establish whether the backend works reliably. Package l
 
 ## Reference projects
 
-The current sibling working copies were clean when inspected.
+The sibling working copies were clean when inspected for the original design.
 
 | Project | Inspected commit | Pattern to follow |
 | --- | --- | --- |
@@ -220,6 +220,6 @@ Treat yabai proxy animations as a separate compatibility project. Add a swm-spec
 
 The first release covers solid active and inactive borders, round and square styles, configurable width, application inclusion and exclusion, automatic display scaling, window lifecycle, JSONC reload, and CLI control. It remains independent of a particular window manager.
 
-The technical decisions still requiring prototype evidence are sublevel access, focus reliability without Accessibility, callback delivery and shutdown, and behaviour across supported macOS releases.
+The original prototype needed to establish sublevel access, focus reliability without Accessibility, callback delivery and shutdown, and behaviour across supported macOS releases.
 
 The first version implements the first-release boundary. Remaining platform validation and later styling work are listed in [development](development.md).
