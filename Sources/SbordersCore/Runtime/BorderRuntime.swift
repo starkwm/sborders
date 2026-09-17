@@ -51,6 +51,7 @@ public final class BorderRuntime {
       },
       handler: { [weak self] request in
         guard let self else { return ControlResponse(ok: false, error: "Daemon is stopping.") }
+
         return await self.handle(request)
       }
     )
@@ -61,6 +62,7 @@ public final class BorderRuntime {
       try events.start { [weak self] event in DispatchQueue.main.async { self?.receive(event) } }
       missionControl.start { [weak self] in
         guard let self, self.running else { return }
+
         if self.missionControl.isActive {
           do { try self.render() } catch { self.report(error) }
         } else {
@@ -69,14 +71,17 @@ public final class BorderRuntime {
           self.scheduleRetry()
         }
       }
+
       try reconcile()
     } catch {
       stop()
       throw error
     }
+
     watcher = ConfigurationWatcher(url: store.url) { [weak self] in self?.configurationChanged() }
     watcher?.start()
     observeWorkspace()
+
     for number in [SIGINT, SIGTERM] {
       signal(number, SIG_IGN)
       let source = DispatchSource.makeSignalSource(signal: number, queue: .main)
@@ -84,6 +89,7 @@ public final class BorderRuntime {
       source.resume()
       signals.append(source)
     }
+
     logger.info("Started with \(self.coordinator.windows.count) windows")
     NSApplication.shared.run()
     stop()
@@ -94,10 +100,12 @@ public final class BorderRuntime {
       control?.stop()
       return
     }
+
     running = false
     retry?.cancel()
     retry = nil
     transferPending.removeAll()
+
     for check in resizeChecks.values { check.cancel() }
     resizeChecks = [:]
     events.stop()
@@ -105,19 +113,24 @@ public final class BorderRuntime {
     try? server.subscribe(ids: [])
     watcher?.stop()
     watcher = nil
+
     for observer in observers {
       NSWorkspace.shared.notificationCenter.removeObserver(observer)
       NotificationCenter.default.removeObserver(observer)
     }
+
     observers = []
+
     for source in signals { source.cancel() }
     signals = []
+
     for border in borders.values { border.close() }
     borders = [:]
     ownedIDs = []
     control?.stop()
     control = nil
     NSApplication.shared.stop(nil)
+
     if let event = NSEvent.otherEvent(
       with: .applicationDefined,
       location: .zero,
@@ -135,22 +148,28 @@ public final class BorderRuntime {
 
   private func receive(_ event: WindowEvent) {
     guard running else { return }
+
     if let id = event.windowID, ownedIDs.contains(id) { return }
     eventCount += 1
+
     if event.kind == .missionControl {
       missionControl.entered()
       return
     }
+
     if event.kind == .created, let id = event.windowID { missionControl.windowCreated(id: id) }
+
     if (event.kind == .focus && event.windowID == nil) || event.kind == .spaces
       || event.kind == .refresh
     {
       missionControl.checkForEntry()
     }
+
     if event.kind == .hidden, let id = event.windowID {
       resizeChecks.removeValue(forKey: id)?.cancel()
       borders[id]?.hide(target: id)
     }
+
     if event.kind == .closed, let id = event.windowID {
       transferPending.remove(id)
       coordinator.remove(id)
@@ -163,27 +182,35 @@ public final class BorderRuntime {
     } else if event.kind == .removedFromSpace, let id = event.windowID {
       transferPending.insert(id) { [weak self] in
         guard let self, self.running else { return }
+
         self.refreshAll = true
         self.schedule()
       }
+
       resizeChecks.removeValue(forKey: id)?.cancel()
+
       if var window = coordinator.windows[id] {
         window.visible = false
         coordinator.update(window)
       }
+
       borders[id]?.hide(target: id)
       refreshAll = true
     } else if let id = event.windowID {
       if event.kind == .moved || event.kind == .resized {
         geometryPending.insert(id)
+
         if event.kind == .resized { scheduleResizeCheck(id: id) }
       } else if event.kind != .focus {
         pending.insert(id)
       }
     }
+
     if event.kind != .moved && event.kind != .resized { focusPending = true }
+
     if event.kind == .spaces || event.kind == .refresh { refreshAll = true }
     schedule()
+
     if event.kind == .spaces || (event.kind == .focus && event.windowID == nil)
       || event.kind == .closed
       || event.kind == .removedFromSpace
@@ -194,11 +221,15 @@ public final class BorderRuntime {
 
   private func schedule() {
     guard !scheduled else { return }
+
     scheduled = true
     DispatchQueue.main.async { [weak self] in
       guard let self else { return }
+
       self.scheduled = false
+
       guard self.running else { return }
+
       do {
         if self.refreshAll {
           self.refreshAll = false
@@ -213,8 +244,10 @@ public final class BorderRuntime {
           self.pending = []
           self.geometryPending = []
           self.focusPending = false
+
           for id in geometryIDs {
             guard let previous = self.coordinator.windows[id] else { continue }
+
             if let snapshot = self.server.geometry(of: previous) {
               self.coordinator.update(snapshot)
             } else {
@@ -223,7 +256,9 @@ public final class BorderRuntime {
               self.coordinator.update(hidden)
             }
           }
+
           let previous = Set(self.coordinator.windows.keys)
+
           for id in ids {
             if let snapshot = self.server.snapshot(id: id) {
               self.coordinator.update(snapshot)
@@ -236,9 +271,11 @@ public final class BorderRuntime {
               self.coordinator.remove(id)
             }
           }
+
           if previous != Set(self.coordinator.windows.keys) {
             try self.updateSubscriptions()
           }
+
           if needsFocus { self.resolveFocus() }
           try self.render(only: needsFocus ? nil : ids.union(geometryIDs))
         }
@@ -248,18 +285,22 @@ public final class BorderRuntime {
 
   private func reconcile() throws {
     let snapshots = try server.windows()
+
     coordinator.reconcile(
       snapshots,
       liveIDs: transferPending.ids.isEmpty ? nil : server.liveWindowIDs(),
       preservingIDs: transferPending.ids
     )
+
     for id in transferPending.ids
     where coordinator.windows[id] == nil || coordinator.windows[id]?.visible == true {
       transferPending.remove(id)
     }
+
     for id in Array(resizeChecks.keys) where coordinator.windows[id] == nil {
       resizeChecks.removeValue(forKey: id)?.cancel()
     }
+
     try updateSubscriptions()
     resolveFocus()
     try render()
@@ -288,16 +329,20 @@ public final class BorderRuntime {
       suspended || missionControl.isActive
       ? [] : coordinator.visibleWindows(configuration: store.configuration)
     let visible = Set(targets.map(\.id))
+
     for id in Array(borders.keys)
     where coordinator.windows[id] == nil || !store.configuration.enabled
       || !store.configuration.allows(coordinator.windows[id]!)
     {
       borders.removeValue(forKey: id)?.close()
     }
+
     for (id, border) in borders where !visible.contains(id) && (ids?.contains(id) ?? true) {
       border.hide(target: id)
     }
+
     defer { updateOwnedIDs() }
+
     for target in targets where ids?.contains(target.id) ?? true {
       let border = borders[target.id] ?? BorderWindow(api: server.api)
       borders[target.id] = border
@@ -316,7 +361,9 @@ public final class BorderRuntime {
     resizeChecks[id]?.cancel()
     resizeChecks[id] = Task { [weak self] in
       do { try await Task.sleep(for: .milliseconds(32)) } catch { return }
+
       guard let self, self.running else { return }
+
       self.resizeChecks.removeValue(forKey: id)
       self.geometryPending.insert(id)
       self.schedule()
@@ -328,7 +375,9 @@ public final class BorderRuntime {
     retry = Task { [weak self] in
       for delay in [30, 100, 250] {
         do { try await Task.sleep(for: .milliseconds(delay)) } catch { return }
+
         guard let self, self.running else { return }
+
         do { try self.reconcile() } catch { self.report(error) }
       }
     }
@@ -336,6 +385,7 @@ public final class BorderRuntime {
 
   private func observeWorkspace() {
     let center = NSWorkspace.shared.notificationCenter
+
     for name in [
       NSWorkspace.didActivateApplicationNotification, NSWorkspace.didLaunchApplicationNotification,
       NSWorkspace.didTerminateApplicationNotification, NSWorkspace.didHideApplicationNotification,
@@ -346,11 +396,13 @@ public final class BorderRuntime {
         center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
           MainActor.assumeIsolated {
             guard let self else { return }
+
             if name == NSWorkspace.didWakeNotification
               || name == NSWorkspace.sessionDidBecomeActiveNotification
             {
               self.suspended = false
             }
+
             self.refreshAll = true
             self.schedule()
             self.scheduleRetry()
@@ -358,18 +410,21 @@ public final class BorderRuntime {
         }
       )
     }
+
     for name in [NSWorkspace.willSleepNotification, NSWorkspace.sessionDidResignActiveNotification]
     {
       observers.append(
         center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
           MainActor.assumeIsolated {
             guard let self else { return }
+
             self.suspended = true
             try? self.render()
           }
         }
       )
     }
+
     observers.append(
       NotificationCenter.default.addObserver(
         forName: NSApplication.didChangeScreenParametersNotification,
@@ -383,13 +438,16 @@ public final class BorderRuntime {
 
   private func checkFocusMode(_ configuration: Configuration, prompt: Bool) throws {
     guard configuration.focusMode == .accessibility else { return }
+
     if accessibility == nil { accessibility = try AccessibilityFocus() }
     try accessibility?.checkPermission(prompt: prompt)
   }
 
   private func configurationChanged() {
     let data = try? Data(contentsOf: store.url)
+
     guard data != store.fileData else { return }
+
     do { try reload() } catch {
       logger.error("Configuration reload failed: \(error.localizedDescription, privacy: .public)")
     }
@@ -407,18 +465,23 @@ public final class BorderRuntime {
   private func handle(_ request: ControlRequest) -> ControlResponse {
     do {
       guard running else { throw MessageError.message("Daemon is stopping.") }
+
       if request.value != nil {
         throw MessageError.message("This command does not accept a value payload.")
       }
+
       if ["stop", "reload"].contains(request.command), !request.arguments.isEmpty {
         throw MessageError.message("\(request.command) does not accept arguments.")
       }
+
       if request.command == "query", request.arguments.count > 1 {
         throw MessageError.message("Choose one query subject.")
       }
+
       switch request.command {
       case "query":
         let subject = request.arguments.first ?? "diagnostics"
+
         switch subject {
         case "config": return try response(store.configuration)
         case "windows":
@@ -460,19 +523,23 @@ public final class BorderRuntime {
           )
         default: throw MessageError.message("Unknown query: \(subject).")
         }
+
       case "reload": try reload()
       case "set":
         guard request.arguments.count == 2 else {
           throw MessageError.message("set requires a property and value.")
         }
+
         try store.set(request.arguments[0], value: request.arguments[1]) { candidate in
           try self.checkFocusMode(candidate, prompt: true)
         }
+
         resolveFocus()
         try render()
       case "stop": break
       default: throw MessageError.message("Unknown command: \(request.command).")
       }
+
       return ControlResponse()
     } catch {
       return ControlResponse(ok: false, error: error.localizedDescription)

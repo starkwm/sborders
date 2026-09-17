@@ -34,29 +34,37 @@ final class WindowEventSource {
 
   func start(handler: @escaping @Sendable (WindowEvent) -> Void) throws {
     WindowEventRelay.shared.install(handler)
+
     for code in Self.codes {
       let result = api.register(receiveWindowEvent, code, nil)
+
       guard result == 0 else {
         stop()
         throw MessageError.message("Cannot register WindowServer event \(code): \(result).")
       }
+
       registered.append(code)
     }
+
     // Mission Control entry is a connection notification, with no window ID.
     let result = api.registerConnection(api.connection, receiveConnectionEvent, 1204, nil)
+
     guard result == 0 else {
       stop()
       throw MessageError.message("Cannot register Mission Control event: \(result).")
     }
+
     observingMissionControl = true
   }
 
   func stop() {
     WindowEventRelay.shared.install(nil)
+
     if observingMissionControl {
       _ = api.unregisterConnection(api.connection, receiveConnectionEvent, 1204, nil)
       observingMissionControl = false
     }
+
     for code in registered { _ = api.unregister(receiveWindowEvent, code, nil) }
     registered = []
   }
@@ -70,13 +78,20 @@ struct WindowEvent: Sendable, Equatable {
 
   static func decode(code: UInt32, data: UnsafeRawPointer?, count: Int) -> WindowEvent? {
     if code == 1204 { return WindowEvent(kind: .missionControl, windowID: nil) }
+
     if code == 1401 { return WindowEvent(kind: .spaces, windowID: nil) }
+
     if code == 1508 { return WindowEvent(kind: .focus, windowID: nil) }
     let offset = [1325, 1326].contains(code) ? 8 : 0
+
     guard let data, count >= offset + 4 else { return nil }
+
     let id = data.loadUnaligned(fromByteOffset: offset, as: UInt32.self)
+
     guard id != 0 else { return nil }
+
     let kind: Kind
+
     switch code {
     case 804: kind = .closed
     case 806: kind = .moved
@@ -87,8 +102,10 @@ struct WindowEvent: Sendable, Equatable {
     case 723, 1322: kind = .focus
     default: kind = .changed
     }
+
     return WindowEvent(kind: kind, windowID: id)
   }
+
   let kind: Kind
   let windowID: UInt32?
 }

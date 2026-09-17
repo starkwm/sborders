@@ -19,9 +19,11 @@ struct WindowSnapshot: Codable, Equatable, Sendable {
 enum WindowEligibility {
   static func accepts(parent: UInt32, attributes: UInt64, tags: UInt64) -> Bool {
     guard parent == 0, tags & (1 << 7) == 0, tags & (1 << 18) == 0 else { return false }
+
     let drawable = attributes & 2 != 0 || tags & 0x400_0000_0000_0000 != 0
     let document = tags & 1 != 0
     let modal = tags & 2 != 0 && tags & (1 << 31) != 0
+
     return drawable && (document || modal)
   }
 }

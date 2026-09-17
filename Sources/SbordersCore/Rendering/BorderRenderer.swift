@@ -11,6 +11,7 @@ enum BorderRenderer {
     context.saveGState()
     context.clear(CGRect(origin: .zero, size: geometry.frame.size))
     let path = CGMutablePath()
+
     if style == .round {
       path.addRoundedRect(
         in: geometry.outer,
@@ -26,6 +27,7 @@ enum BorderRenderer {
       path.addRect(geometry.outer)
       path.addRect(geometry.inner)
     }
+
     context.addPath(path)
     context.setFillColor(color.cgColor)
     context.drawPath(using: .eoFill)

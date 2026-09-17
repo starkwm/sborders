@@ -14,9 +14,11 @@ import Testing
   for _ in 0..<10 {
     transfers.insert(1) { Issue.record("A repeated notification replaced the original expiry.") }
     state.reconcile([], liveIDs: [1], preservingIDs: transfers.ids)
+
     #expect(state.windows[1] != nil)
   }
   await expiration.value
+
   #expect(expirations == 1)
   #expect(transfers.ids.isEmpty)
   #expect(state.windows.isEmpty)
@@ -30,6 +32,7 @@ import Testing
   let replacement = transfers.insert(1) { expired = true }
   await cancelled.value
   await replacement.value
+
   #expect(expired)
   #expect(transfers.ids.isEmpty)
 }
@@ -41,5 +44,6 @@ import Testing
   transfers.removeAll()
   await first.value
   await second.value
+
   #expect(transfers.ids.isEmpty)
 }

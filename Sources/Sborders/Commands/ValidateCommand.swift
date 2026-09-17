@@ -19,6 +19,7 @@ struct ValidateCommand: ParsableCommand {
     let url =
       config.map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) }
       ?? ConfigurationFile.defaultURL()
+
     try ConfigurationFile.validate(url: url)
     print("Configuration is valid.")
   }

@@ -19,11 +19,13 @@ struct StartCommand: ParsableCommand {
     let url =
       config.map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath).standardizedFileURL }
       ?? ConfigurationFile.defaultURL()
+
     try MainActor.assumeIsolated {
       let runtime = try BorderRuntime(
         configurationURL: url,
         allowMissingConfiguration: config == nil
       )
+
       try runtime.run()
     }
   }

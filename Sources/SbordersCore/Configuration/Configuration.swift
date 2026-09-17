@@ -52,9 +52,11 @@ struct Configuration: Codable, Equatable, Sendable {
     guard width.isFinite, (0.5...64).contains(width) else {
       throw MessageError.message("width must be between 0.5 and 64 points.")
     }
+
     guard BorderColor(hex: activeColor) != nil else {
       throw MessageError.message("activeColor must use #RRGGBB or #RRGGBBAA.")
     }
+
     guard BorderColor(hex: inactiveColor) != nil else {
       throw MessageError.message("inactiveColor must use #RRGGBB or #RRGGBBAA.")
     }
@@ -69,18 +71,22 @@ struct Configuration: Codable, Equatable, Sendable {
     guard CodingKeys.allCases.contains(where: { $0.rawValue == key && $0 != .schema }) else {
       throw MessageError.message("Unknown setting: \(key).")
     }
+
     var object =
       try JSONSerialization.jsonObject(with: JSONEncoder().encode(self)) as! [String: Any]
+
     if ["activeColor", "inactiveColor", "style", "focusMode"].contains(key) {
       object[key] = value
     } else {
       guard let data = value.data(using: .utf8) else {
         throw MessageError.message("Invalid setting value.")
       }
+
       let parsed = try JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed])
       try JSONC.rejectDuplicateKeys(data)
       object[key] = parsed
     }
+
     return try ConfigurationFile.decode(JSONSerialization.data(withJSONObject: object))
   }
 }
@@ -101,6 +107,7 @@ struct AppMatcher: Codable, Equatable, Sendable {
     let values = try decoder.container(keyedBy: CodingKeys.self)
     bundleID = try values.decodeIfPresent(String.self, forKey: .bundleID)
     processName = try values.decodeIfPresent(String.self, forKey: .processName)
+
     guard values.allKeys.count == 1, let value = bundleID ?? processName,
       !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     else {
@@ -112,6 +119,7 @@ struct AppMatcher: Codable, Equatable, Sendable {
 
   func matches(_ window: WindowSnapshot) -> Bool {
     if let bundleID { return window.bundleID == bundleID }
+
     return processName == window.processName
   }
 }
