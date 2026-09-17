@@ -9,11 +9,14 @@ enum BorderRenderer {
     style: Configuration.Style,
     tile: CGRect? = nil
   ) {
-    context.saveGState()
     let tile = tile ?? CGRect(origin: .zero, size: geometry.frame.size)
-    context.clear(CGRect(origin: .zero, size: tile.size))
-    context.clip(to: CGRect(origin: .zero, size: tile.size))
+    let bounds = CGRect(origin: .zero, size: tile.size)
+
+    context.saveGState()
+    context.clear(bounds)
+    context.clip(to: bounds)
     context.translateBy(x: -tile.minX, y: -tile.minY)
+
     let path = CGMutablePath()
 
     if style == .round {
