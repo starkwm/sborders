@@ -123,7 +123,7 @@ func tiledRendererMatchesFullWindowPixels(style: Configuration.Style, scale: Dou
       // Clipping can change CoreGraphics colour-channel rounding by one byte.
       let differences = assembled.indices.filter { abs(Int(assembled[$0]) - Int(expected[$0])) > 1 }
       #expect(
-        differences.count == 0,
+        differences.isEmpty,
         "size=\(size), width=\(width), first differences=\(differences.prefix(8))"
       )
     }
