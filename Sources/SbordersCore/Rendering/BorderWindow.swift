@@ -11,11 +11,14 @@ final class BorderWindow {
 
   var frame: CGRect? {
     guard !surfaces.isEmpty else { return nil }
+
     var result = CGRect.null
 
     for surface in surfaces {
       var rect = CGRect.zero
+
       guard api.getBounds(api.connection, surface.id, &rect) == 0 else { return nil }
+
       result = result.union(rect)
     }
 
@@ -26,6 +29,7 @@ final class BorderWindow {
     !surfaces.isEmpty
       && surfaces.allSatisfy { surface in
         var visible = false
+
         return api.isOrdered(api.connection, surface.id, &visible) == 0 && visible
       }
   }
@@ -49,6 +53,7 @@ final class BorderWindow {
     forceOrder: Bool = false
   ) throws {
     let hex = focused ? configuration.activeColor : configuration.inactiveColor
+
     guard let color = BorderColor(hex: hex), color.alpha > 0 else {
       close()
       return
@@ -76,6 +81,7 @@ final class BorderWindow {
 
     if orderedIn && drawing == next && !forceOrder, var previous = appliedTarget {
       if previous == target { return }
+
       previous.frame = target.frame
 
       if previous == target {
@@ -99,6 +105,7 @@ final class BorderWindow {
           tile: tile,
           frame: geometry.screenFrame(for: tile)
         )
+
         if recreated { contextCreationCount += 1 }
 
         if recreated || drawing != next {
@@ -107,6 +114,7 @@ final class BorderWindow {
       }
 
       if drawing != next { redrawCount += 1 }
+
       drawing = next
       try position(target: target, geometry: geometry)
     } catch {
@@ -122,6 +130,7 @@ final class BorderWindow {
     }
 
     for surface in surfaces { api.order(transaction, surface.id, 0, target) }
+
     api.commit(transaction, 0)
     orderedIn = false
     transactionCount += 1
@@ -129,6 +138,7 @@ final class BorderWindow {
 
   func close() {
     for surface in surfaces { surface.close() }
+
     surfaces = []
     drawing = nil
     appliedTarget = nil
@@ -190,7 +200,9 @@ private final class BorderSurface {
     }
 
     var tags: UInt64 = (1 << 1) | (1 << 9) | (1 << 18)
+
     if target.sticky { tags |= 1 << 11 }
+
     api.setTags(api.connection, id, &tags, 64)
 
     if !target.sticky {
@@ -205,13 +217,16 @@ private final class BorderSurface {
       let removed = Array(previous.subtracting(next))
 
       if !added.isEmpty { api.addToSpaces(api.connection, [id] as CFArray, added as CFArray) }
+
       if !removed.isEmpty {
         api.removeFromSpaces(api.connection, [id] as CFArray, removed as CFArray)
       }
+
       spaces = target.spaces
     }
 
     let recreate = context == nil || self.tile.size != tile.size || scale != target.scale
+
     if recreate { context = nil }
     if scale != target.scale { api.setResolution(api.connection, id, target.scale) }
 
@@ -229,17 +244,20 @@ private final class BorderSurface {
       guard let context = api.createContext(api.connection, id, nil)?.takeRetainedValue() else {
         throw MessageError.message("Cannot create a border drawing context.")
       }
+
       self.context = context
     }
 
     self.tile = tile
     scale = target.scale
+
     return recreate
   }
 
   func draw(geometry: BorderGeometry, tile: CGRect, color: BorderColor, style: Configuration.Style)
   {
     guard let context else { return }
+
     BorderRenderer.draw(in: context, geometry: geometry, color: color, style: style, tile: tile)
     context.flush()
     api.flush(api.connection, id, nil)
@@ -247,7 +265,9 @@ private final class BorderSurface {
 
   func close() {
     context = nil
+
     if id != 0 { api.releaseWindow(api.connection, id) }
+
     id = 0
     tile = .zero
     spaces = []
@@ -257,9 +277,11 @@ private final class BorderSurface {
   private func region(size: CGSize) throws -> CFTypeRef {
     var rect = CGRect(origin: .zero, size: size)
     var raw: Unmanaged<CFTypeRef>?
+
     guard api.newRegion(&rect, &raw) == 0, let raw else {
       throw MessageError.message("Cannot create border region.")
     }
+
     return raw.takeRetainedValue()
   }
 }

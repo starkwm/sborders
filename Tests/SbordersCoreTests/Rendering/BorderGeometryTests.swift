@@ -60,12 +60,14 @@ func drawsOnlyTheBorder(_ style: Configuration.Style) throws {
       bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
     )
   )
+
   BorderRenderer.draw(
     in: context,
     geometry: geometry,
     color: try #require(BorderColor(hex: "#FF0000")),
     style: style
   )
+
   let bytes = try #require(context.data).assumingMemoryBound(to: UInt8.self)
 
   #expect(bytes[21 * 208 + 26 * 4 + 3] == 0)
@@ -90,6 +92,7 @@ func tilesMatchFullWindow(style: Configuration.Style, scale: Double) throws {
       )
       let full = try bitmap(size: geometry.frame.size, scale: scale)
       let color = try #require(BorderColor(hex: "#FF008080"))
+
       BorderRenderer.draw(in: full, geometry: geometry, color: color, style: style)
       var assembled = [UInt8](repeating: 0, count: full.bytesPerRow * full.height)
       let tiles = geometry.tiles(scale: scale, style: style)
@@ -98,14 +101,19 @@ func tilesMatchFullWindow(style: Configuration.Style, scale: Double) throws {
       for (index, tile) in tiles.enumerated() {
         #expect(tile.width > 0 && tile.height > 0)
         #expect(CGRect(origin: .zero, size: geometry.frame.size).contains(tile))
+
         for other in tiles.dropFirst(index + 1) {
           let intersection = tile.intersection(other)
+
           #expect(intersection.isNull || intersection.width == 0 || intersection.height == 0)
         }
+
         union = union.union(geometry.screenFrame(for: tile))
 
         let context = try bitmap(size: tile.size, scale: scale)
+
         BorderRenderer.draw(in: context, geometry: geometry, color: color, style: style, tile: tile)
+
         let bytes = try #require(context.data).assumingMemoryBound(to: UInt8.self)
         let x = Int((tile.minX * scale).rounded())
         let y = full.height - Int((tile.minY * scale).rounded()) - context.height
@@ -119,9 +127,12 @@ func tilesMatchFullWindow(style: Configuration.Style, scale: Double) throws {
       }
 
       #expect(union == geometry.frame)
+
       let expected = try #require(full.data).assumingMemoryBound(to: UInt8.self)
+
       // Clipping can change CoreGraphics colour-channel rounding by one byte.
       let differences = assembled.indices.filter { abs(Int(assembled[$0]) - Int(expected[$0])) > 1 }
+
       #expect(
         differences.isEmpty,
         "size=\(size), width=\(width), first differences=\(differences.prefix(8))"
@@ -155,6 +166,8 @@ private func bitmap(size: CGSize, scale: Double) throws -> CGContext {
       bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
     )
   )
+
   context.scaleBy(x: scale, y: scale)
+
   return context
 }

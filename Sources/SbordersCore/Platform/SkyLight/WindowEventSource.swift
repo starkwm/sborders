@@ -7,6 +7,7 @@ private func receiveWindowEvent(
   _ context: UnsafeMutableRawPointer?
 ) {
   guard let event = WindowEvent.decode(code: code, data: bytes, count: count) else { return }
+
   WindowEventRelay.shared.send(event)
 }
 
@@ -66,6 +67,7 @@ final class WindowEventSource {
     }
 
     for code in registered { _ = api.unregister(receiveWindowEvent, code, nil) }
+
     registered = []
   }
 }
@@ -82,6 +84,7 @@ struct WindowEvent: Sendable, Equatable {
     if code == 1401 { return WindowEvent(kind: .spaces, windowID: nil) }
 
     if code == 1508 { return WindowEvent(kind: .focus, windowID: nil) }
+
     let offset = [1325, 1326].contains(code) ? 8 : 0
 
     guard let data, count >= offset + 4 else { return nil }
@@ -124,6 +127,7 @@ private final class WindowEventRelay: @unchecked Sendable {
 
   func send(_ event: WindowEvent) {
     let handler = lock.withLock { self.handler }
+
     handler?(event)
   }
 }

@@ -32,7 +32,9 @@ final class AccessibilityFocus {
 
     let app = AXUIElementCreateApplication(pid)
     AXUIElementSetMessagingTimeout(app, 0.1)
+
     var value: CFTypeRef?
+
     guard
       AXUIElementCopyAttributeValue(app, kAXFocusedWindowAttribute as CFString, &value) == .success,
       let value, CFGetTypeID(value) == AXUIElementGetTypeID()

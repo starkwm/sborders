@@ -13,6 +13,7 @@ final class WindowTransfers {
   @discardableResult
   func insert(_ id: UInt32, onExpiry: @escaping @MainActor () -> Void) -> Task<Void, Never> {
     if let expiration = expirations[id] { return expiration }
+
     let deadline = ContinuousClock.now.advanced(by: gracePeriod)
     let expiration = Task { [weak self] in
       do { try await Task.sleep(until: deadline, clock: .continuous) } catch { return }
@@ -32,6 +33,7 @@ final class WindowTransfers {
 
   func removeAll() {
     for expiration in expirations.values { expiration.cancel() }
+
     expirations = [:]
   }
 }

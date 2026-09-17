@@ -3,6 +3,7 @@ import StarkConfiguration
 
 private func rejectUnknownKeys(_ decoder: any Decoder, allowed: [String]) throws {
   let values = try decoder.container(keyedBy: AnyKey.self)
+
   if let key = values.allKeys.first(where: { !allowed.contains($0.stringValue) }) {
     throw DecodingError.dataCorrupted(
       .init(
@@ -35,7 +36,9 @@ struct Configuration: Codable, Equatable, Sendable {
 
   init(from decoder: any Decoder) throws {
     try rejectUnknownKeys(decoder, allowed: CodingKeys.allCases.map(\.rawValue))
+
     let values = try decoder.container(keyedBy: CodingKeys.self)
+
     schema = values.contains(.schema) ? try values.decode(String.self, forKey: .schema) : nil
     enabled = try values.value(Bool.self, forKey: .enabled, default: true)
     width = try values.value(Double.self, forKey: .width, default: 4)
@@ -45,6 +48,7 @@ struct Configuration: Codable, Equatable, Sendable {
     focusMode = try values.value(FocusMode.self, forKey: .focusMode, default: .windowServer)
     includeApps = try values.value([AppMatcher].self, forKey: .includeApps, default: [])
     excludeApps = try values.value([AppMatcher].self, forKey: .excludeApps, default: [])
+
     try validate()
   }
 
@@ -81,6 +85,7 @@ struct Configuration: Codable, Equatable, Sendable {
       let data = Data(value.utf8)
       let parsed = try JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed])
       try JSONC.rejectDuplicateKeys(data)
+
       object[key] = parsed
     }
 
@@ -101,7 +106,9 @@ struct AppMatcher: Codable, Equatable, Sendable {
 
   init(from decoder: any Decoder) throws {
     try rejectUnknownKeys(decoder, allowed: CodingKeys.allCases.map(\.rawValue))
+
     let values = try decoder.container(keyedBy: CodingKeys.self)
+
     bundleID = try values.decodeIfPresent(String.self, forKey: .bundleID)
     processName = try values.decodeIfPresent(String.self, forKey: .processName)
 
