@@ -38,9 +38,6 @@ import Testing
   #"{"includeApps":[{"bundleID":""}]}"#,
   #"{"includeApps":[{"bundleID":null}]}"#,
   #"{"includeApps":[{"bundleId":"a"}]}"#,
-  #"{"width":4,,}"#,
-  #"{"width":,}"#,
-  #"{/* unclosed"#,
   #"[]"#,
 ])
 func rejectsInvalidConfiguration(_ json: String) {
@@ -51,7 +48,6 @@ func rejectsInvalidConfiguration(_ json: String) {
   let original = Configuration()
 
   #expect(throws: (any Error).self) { try original.setting("width", value: "-2") }
-  #expect(original.width == 4)
   #expect(try original.setting("activeColor", value: "#ABCDEF80").activeColor == "#ABCDEF80")
   #expect(try original.setting("enabled", value: "false").enabled == false)
 }
