@@ -1,6 +1,7 @@
 import AppKit
 import OSLog
 import StarkConfiguration
+import StarkIPC
 
 @MainActor
 public final class BorderRuntime {
