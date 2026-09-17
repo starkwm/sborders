@@ -2,19 +2,13 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   pull_request:
+
+permissions:
+  contents: read
 
 jobs:
   lint-and-test:
-    name: Lint and test
-    runs-on: macos-26
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v6
-      - name: Swift version
-        run: swift --version
-      - name: Lint
-        run: make lint
-      - name: Test
-        run: make test
+    uses: starkwm/workflows/.github/workflows/lint-and-test.yml@main
