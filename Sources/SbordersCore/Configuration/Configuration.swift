@@ -81,7 +81,7 @@ struct Configuration: Codable, Equatable, Sendable {
       try JSONC.rejectDuplicateKeys(data)
       object[key] = parsed
     }
-    return try ConfigurationDecoder.decode(from: JSONSerialization.data(withJSONObject: object))
+    return try ConfigurationFile.decode(JSONSerialization.data(withJSONObject: object))
   }
 }
 

@@ -1,4 +1,5 @@
 import Foundation
+import StarkConfiguration
 
 public enum ConfigurationFile {
   public static func defaultURL(
@@ -19,7 +20,8 @@ public enum ConfigurationFile {
 
   static func decode(_ data: Data) throws -> Configuration {
     do {
-      return try ConfigurationDecoder.decode(from: data)
+      let json = try JSONC.normalized(data, rejectingDuplicateKeys: true)
+      return try JSONDecoder().decode(Configuration.self, from: json)
     } catch let error as DecodingError {
       let context: DecodingError.Context
       switch error {
