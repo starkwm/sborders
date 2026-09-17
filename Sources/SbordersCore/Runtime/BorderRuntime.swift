@@ -359,7 +359,7 @@ public final class BorderRuntime {
     }
   }
 
-  private func updateOwnedIDs() { ownedIDs = Set(borders.values.map(\.id).filter { $0 != 0 }) }
+  private func updateOwnedIDs() { ownedIDs = Set(borders.values.flatMap(\.ids).filter { $0 != 0 }) }
 
   private func scheduleResizeCheck(id: UInt32) {
     resizeChecks[id]?.cancel()
@@ -494,7 +494,8 @@ public final class BorderRuntime {
               WindowStatus(
                 window: window,
                 focused: coordinator.focusedID == window.id,
-                borderID: borders[window.id]?.id,
+                borderID: borders[window.id]?.ids.first,
+                borderIDs: borders[window.id]?.ids ?? [],
                 borderFrame: borders[window.id]?.currentFrame,
                 borderVisible: borders[window.id]?.isVisible ?? false,
                 borderSublevel: borders[window.id]?.sublevel,
@@ -509,7 +510,7 @@ public final class BorderRuntime {
             Diagnostics(
               pid: getpid(),
               windowCount: coordinator.windows.count,
-              borderCount: borders.count,
+              borderCount: borders.values.filter { !$0.ids.isEmpty }.count,
               eventCount: eventCount,
               reconcileCount: reconcileCount,
               geometryQueryCount: server.geometryQueryCount,
@@ -566,6 +567,7 @@ private struct WindowStatus: Encodable {
   let window: WindowSnapshot
   let focused: Bool
   let borderID: UInt32?
+  let borderIDs: [UInt32]
   let borderFrame: CGRect?
   let borderVisible: Bool
   let borderSublevel: Int32?

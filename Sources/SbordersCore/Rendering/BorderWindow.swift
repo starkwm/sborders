@@ -1,30 +1,42 @@
 import AppKit
 
+/// One logical border, backed by small windows around the target's perimeter.
 @MainActor
 final class BorderWindow {
-  private(set) var id: UInt32 = 0
   private(set) var redrawCount = 0
   private(set) var transactionCount = 0
   private(set) var contextCreationCount = 0
   private(set) var frame = CGRect.zero
 
-  var currentFrame: CGRect? {
-    var rect = CGRect.zero
+  var ids: [UInt32] { surfaces.map(\.id) }
 
-    return id != 0 && api.getBounds(api.connection, id, &rect) == 0 ? rect : nil
+  var currentFrame: CGRect? {
+    guard !surfaces.isEmpty else { return nil }
+    var result = CGRect.null
+
+    for surface in surfaces {
+      var rect = CGRect.zero
+      guard api.getBounds(api.connection, surface.id, &rect) == 0 else { return nil }
+      result = result.union(rect)
+    }
+
+    return result
   }
 
   var isVisible: Bool {
-    var visible = false
-
-    return id != 0 && api.isOrdered(api.connection, id, &visible) == 0 && visible
+    !surfaces.isEmpty
+      && surfaces.allSatisfy { surface in
+        var visible = false
+        return api.isOrdered(api.connection, surface.id, &visible) == 0 && visible
+      }
   }
 
-  var sublevel: Int32 { api.getSublevel(api.connection, id) }
+  var sublevel: Int32? {
+    surfaces.first.map { api.getSublevel(api.connection, $0.id) }
+  }
 
   private let api: SkyLight
-  private var context: CGContext?
-  private var spaces: [UInt64] = []
+  private var surfaces: [BorderSurface] = []
   private var drawing: Drawing?
   private var appliedTarget: WindowSnapshot?
   private var orderedIn = false
@@ -37,6 +49,12 @@ final class BorderWindow {
     focused: Bool,
     forceOrder: Bool = false
   ) throws {
+    let hex = focused ? configuration.activeColor : configuration.inactiveColor
+    guard let color = BorderColor(hex: hex), color.alpha > 0 else {
+      close()
+      return
+    }
+
     guard
       let geometry = BorderGeometry(
         target: target.frame,
@@ -54,7 +72,7 @@ final class BorderWindow {
       radius: geometry.radius,
       scale: target.scale,
       style: configuration.style,
-      color: focused ? configuration.activeColor : configuration.inactiveColor
+      color: hex
     )
 
     if orderedIn && drawing == next && !forceOrder, var previous = appliedTarget {
@@ -62,17 +80,108 @@ final class BorderWindow {
       previous.frame = target.frame
 
       if previous == target {
-        try position(target: target, frame: geometry.frame)
+        try position(target: target, geometry: geometry)
         return
       }
     }
 
-    if id == 0 {
-      var local = CGRect(origin: .zero, size: geometry.frame.size)
-      let region = try region(&local)
+    let tiles = geometry.tiles(scale: target.scale, style: configuration.style)
 
-      guard api.newWindow(api.connection, 2, -10000, -10000, region, &id) == 0, id != 0 else {
-        close()
+    // Very small windows can have no straight side sections.
+    if surfaces.count != tiles.count {
+      close()
+      surfaces = tiles.map { _ in BorderSurface(api: api) }
+    }
+
+    do {
+      for (surface, tile) in zip(surfaces, tiles) {
+        let recreated = try surface.prepare(
+          target: target,
+          tile: tile,
+          frame: geometry.screenFrame(for: tile)
+        )
+        if recreated { contextCreationCount += 1 }
+
+        if recreated || drawing != next {
+          surface.draw(geometry: geometry, tile: tile, color: color, style: configuration.style)
+        }
+      }
+
+      if drawing != next { redrawCount += 1 }
+      drawing = next
+      try position(target: target, geometry: geometry)
+    } catch {
+      // Do not leave a partially updated border on screen after allocation failure.
+      close()
+      throw error
+    }
+  }
+
+  func hide(target: UInt32) {
+    guard orderedIn, let transaction = api.transaction(api.connection)?.takeRetainedValue() else {
+      return
+    }
+
+    for surface in surfaces { api.order(transaction, surface.id, 0, target) }
+    api.commit(transaction, 0)
+    orderedIn = false
+    transactionCount += 1
+  }
+
+  func close() {
+    for surface in surfaces { surface.close() }
+    surfaces = []
+    drawing = nil
+    appliedTarget = nil
+    orderedIn = false
+    frame = .zero
+  }
+
+  private func position(target: WindowSnapshot, geometry: BorderGeometry) throws {
+    guard let transaction = api.transaction(api.connection)?.takeRetainedValue() else {
+      throw MessageError.message("Cannot begin border transaction.")
+    }
+
+    for surface in surfaces {
+      api.move(transaction, surface.id, geometry.screenFrame(for: surface.tile).origin)
+
+      if appliedTarget?.level != target.level {
+        api.setLevel(transaction, surface.id, target.level)
+      }
+
+      if appliedTarget?.sublevel != target.sublevel {
+        api.setSublevel(transaction, surface.id, target.sublevel)
+      }
+
+      api.order(transaction, surface.id, -1, target.id)
+    }
+
+    api.commit(transaction, 0)
+    transactionCount += 1
+    frame = geometry.frame
+    appliedTarget = target
+    orderedIn = true
+  }
+}
+
+@MainActor
+private final class BorderSurface {
+  private(set) var id: UInt32 = 0
+  private(set) var tile = CGRect.zero
+
+  private let api: SkyLight
+  private var context: CGContext?
+  private var spaces: [UInt64] = []
+  private var scale: Double?
+
+  init(api: SkyLight) { self.api = api }
+
+  func prepare(target: WindowSnapshot, tile: CGRect, frame: CGRect) throws -> Bool {
+    if id == 0 {
+      guard
+        api.newWindow(api.connection, 2, -10000, -10000, try region(size: tile.size), &id) == 0,
+        id != 0
+      else {
         throw MessageError.message("Cannot create a border window.")
       }
 
@@ -84,7 +193,6 @@ final class BorderWindow {
     }
 
     var tags: UInt64 = (1 << 1) | (1 << 9) | (1 << 18)
-
     if target.sticky { tags |= 1 << 11 }
     api.setTags(api.connection, id, &tags, 64)
 
@@ -100,112 +208,62 @@ final class BorderWindow {
       let removed = Array(previous.subtracting(next))
 
       if !added.isEmpty { api.addToSpaces(api.connection, [id] as CFArray, added as CFArray) }
-
       if !removed.isEmpty {
         api.removeFromSpaces(api.connection, [id] as CFArray, removed as CFArray)
       }
-
       spaces = target.spaces
     }
 
-    if drawing?.scale != next.scale { api.setResolution(api.connection, id, next.scale) }
+    let recreate = context == nil || self.tile.size != tile.size || scale != target.scale
+    if recreate { context = nil }
+    if scale != target.scale { api.setResolution(api.connection, id, target.scale) }
 
-    if frame.size != geometry.frame.size {
-      var local = CGRect(origin: .zero, size: geometry.frame.size)
+    if self.tile.size != tile.size {
       api.setShape(
         api.connection,
         id,
-        Float(geometry.frame.minX),
-        Float(geometry.frame.minY),
-        try region(&local)
+        Float(frame.minX),
+        Float(frame.minY),
+        try region(size: tile.size)
       )
     }
 
-    // Rebind after shape or resolution changes so drawing covers the current
-    // backing store, including newly exposed pixels when the window grows.
-    if context == nil || drawing?.size != next.size || drawing?.scale != next.scale {
-      guard let replacement = api.createContext(api.connection, id, nil)?.takeRetainedValue() else {
-        hide(target: target.id)
-        context = nil
-        drawing = nil
-        frame = .zero
+    if recreate {
+      guard let context = api.createContext(api.connection, id, nil)?.takeRetainedValue() else {
         throw MessageError.message("Cannot create a border drawing context.")
       }
-
-      context = replacement
-      contextCreationCount += 1
+      self.context = context
     }
 
-    if drawing != next {
-      draw(geometry, drawing: next)
-      drawing = next
-      redrawCount += 1
-    }
-
-    try position(target: target, frame: geometry.frame)
+    self.tile = tile
+    scale = target.scale
+    return recreate
   }
 
-  func hide(target: UInt32) {
-    guard orderedIn, id != 0, let transaction = api.transaction(api.connection)?.takeRetainedValue()
-    else {
-      return
-    }
-
-    orderedIn = false
-    api.order(transaction, id, 0, target)
-    api.commit(transaction, 0)
-    transactionCount += 1
+  func draw(geometry: BorderGeometry, tile: CGRect, color: BorderColor, style: Configuration.Style)
+  {
+    guard let context else { return }
+    BorderRenderer.draw(in: context, geometry: geometry, color: color, style: style, tile: tile)
+    context.flush()
+    api.flush(api.connection, id, nil)
   }
 
   func close() {
     context = nil
-
     if id != 0 { api.releaseWindow(api.connection, id) }
     id = 0
+    tile = .zero
     spaces = []
-    drawing = nil
-    appliedTarget = nil
-    orderedIn = false
-    frame = .zero
+    scale = nil
   }
 
-  private func position(target: WindowSnapshot, frame: CGRect) throws {
-    guard let transaction = api.transaction(api.connection)?.takeRetainedValue() else {
-      throw MessageError.message("Cannot begin border transaction.")
-    }
-
-    api.move(transaction, id, frame.origin)
-
-    if appliedTarget?.level != target.level { api.setLevel(transaction, id, target.level) }
-
-    if appliedTarget?.sublevel != target.sublevel {
-      api.setSublevel(transaction, id, target.sublevel)
-    }
-
-    api.order(transaction, id, -1, target.id)
-    api.commit(transaction, 0)
-    transactionCount += 1
-    self.frame = frame
-    appliedTarget = target
-    orderedIn = true
-  }
-
-  private func region(_ rect: inout CGRect) throws -> CFTypeRef {
+  private func region(size: CGSize) throws -> CFTypeRef {
+    var rect = CGRect(origin: .zero, size: size)
     var raw: Unmanaged<CFTypeRef>?
-
     guard api.newRegion(&rect, &raw) == 0, let raw else {
       throw MessageError.message("Cannot create border region.")
     }
-
     return raw.takeRetainedValue()
-  }
-
-  private func draw(_ geometry: BorderGeometry, drawing: Drawing) {
-    guard let context, let color = BorderColor(hex: drawing.color) else { return }
-
-    BorderRenderer.draw(in: context, geometry: geometry, color: color, style: drawing.style)
-    context.flush()
-    api.flush(api.connection, id, nil)
   }
 }
 

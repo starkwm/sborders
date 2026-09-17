@@ -74,3 +74,21 @@ Checked on 16 September 2026 with the debug build:
 The full desktop fixture stopped at initial focus on both the unchanged `72b058b` baseline and the modified build. The tracking-only mode does not require activation and does not establish focus behavior. Multi-display transfers, mixed backing scales, and presented-pixel synchronization still need live verification. Context counters establish recreation, not visual correctness of every resized pixel.
 
 Checked again on 17 September 2026 after giving each pending transfer an independent 380 ms expiry. All 37 Swift tests and strict formatting passed. The added tests cover repeated notifications without extending retention, cancellation followed by a new transfer for the same window, and shutdown cancellation. Desktop checks were not rerun.
+
+## Border memory improvement
+
+Checked on 17 September 2026 on the same macOS 27 machine. A temporary AppKit fixture opened six windows with 1100 × 700-point content areas on a 2× display. Both release builds used 4-point round borders and opaque active and inactive colours, restricted to the fixture application. Each daemon ran separately against the same six windows.
+
+| Measurement | Full-window borders | Edge-strip borders |
+| --- | ---: | ---: |
+| Resident memory from `ps` | 117,792 KiB | 44,048 KiB |
+| Physical footprint from `vmmap -summary` | 88.5 MiB | 18.0 MiB |
+| Backing windows | 6 | 24 |
+
+Resident memory fell by about 63%; physical footprint fell by about 80%. This is one controlled sample, not a prediction for every desktop or a direct comparison with Activity Monitor's displayed value.
+
+The live fixture verified movement without repainting or context recreation, shrinking and growing, hide/show, minimise/restore, transparent-colour resource release, restoration of opaque borders, closed-window removal, and socket cleanup on shutdown. After eight additional shrink/grow cycles, resident memory was 45,760 KiB. The four captured strip images showed the expected top and bottom corners and straight side edges. This does not establish long-term leak freedom or presentation timing during animated transitions.
+
+All 36 Swift tests and strict Swift formatting passed. Offscreen comparisons cover round and square borders, 1× and 2× scale, fractional window sizes and border widths, and tiny windows with large border widths. Assembling the strips matches the full-window renderer within one byte per colour channel of CoreGraphics rounding. A 1500 × 1000-point target with a 4-point border and 9-point corner radius uses less than 4% of the original drawing area.
+
+Multiple displays, mixed-scale transfers, fullscreen and Mission Control transitions were not rerun for this renderer change. The temporary fixture and test daemons were stopped after validation.
