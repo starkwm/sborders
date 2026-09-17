@@ -5,39 +5,18 @@ final class WindowServerClient {
   let api: SkyLight
   private(set) var geometryQueryCount = 0
   private(set) var metadataQueryCount = 0
-  private(set) var visibleSpaces = Set<UInt64>()
+
+  private var visibleSpaces = Set<UInt64>()
   private var allSpaces: [UInt64] = []
 
   init() throws { api = try SkyLight() }
 
-  func refreshSpaces() throws {
-    guard let raw = api.copyDisplaySpaces(api.connection)?.takeRetainedValue() else {
-      throw MessageError.message("Cannot read display Spaces.")
-    }
-
-    let displays = raw as? [[String: Any]] ?? []
-    allSpaces = []
-    visibleSpaces = []
-
-    for display in displays {
-      if let current = display["Current Space"] as? [String: Any],
-        let id = current["id64"] as? UInt64
-      {
-        visibleSpaces.insert(id)
-      }
-
-      for space in display["Spaces"] as? [[String: Any]] ?? [] {
-        if let id = space["id64"] as? UInt64 { allSpaces.append(id) }
-      }
-    }
-
-    guard !allSpaces.isEmpty else { throw MessageError.message("No desktop Spaces are available.") }
-  }
-
   func windows() throws -> [WindowSnapshot] {
     try refreshSpaces()
+
     var set: UInt64 = 0
     var clear: UInt64 = 0
+
     guard
       let ids = api.copyWindows(api.connection, 0, allSpaces as CFArray, 7, &set, &clear)?
         .takeRetainedValue()
@@ -54,6 +33,7 @@ final class WindowServerClient {
   /// window crosses displays, including displays with the same backing scale.
   func geometry(of previous: WindowSnapshot) -> WindowSnapshot? {
     if !previous.visible { return snapshot(id: previous.id) }
+
     geometryQueryCount += 1
     var frame = CGRect.zero
 
@@ -105,13 +85,39 @@ final class WindowServerClient {
     guard let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier else { return nil }
 
     let eligible = Set(windows.filter { $0.pid == pid && $0.visible && !$0.fullscreen }.map(\.id))
+
     // CGWindowList preserves front-to-back ordering, including multiple windows of one app.
     let ordered =
       CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], 0)
       as? [[String: Any]] ?? []
+
     return ordered.compactMap { ($0[kCGWindowNumber as String] as? NSNumber)?.uint32Value }.first {
       eligible.contains($0)
     }
+  }
+
+  private func refreshSpaces() throws {
+    guard let raw = api.copyDisplaySpaces(api.connection)?.takeRetainedValue() else {
+      throw MessageError.message("Cannot read display Spaces.")
+    }
+
+    let displays = raw as? [[String: Any]] ?? []
+    allSpaces = []
+    visibleSpaces = []
+
+    for display in displays {
+      if let current = display["Current Space"] as? [String: Any],
+        let id = current["id64"] as? UInt64
+      {
+        visibleSpaces.insert(id)
+      }
+
+      for space in display["Spaces"] as? [[String: Any]] ?? [] {
+        if let id = space["id64"] as? UInt64 { allSpaces.append(id) }
+      }
+    }
+
+    guard !allSpaces.isEmpty else { throw MessageError.message("No desktop Spaces are available.") }
   }
 
   private func snapshots(ids: CFArray) -> [WindowSnapshot] {
@@ -126,6 +132,7 @@ final class WindowServerClient {
     while api.advance(iterator) {
       let id = api.windowID(iterator)
       let tags = api.tags(iterator)
+
       guard
         WindowEligibility.accepts(
           parent: api.parentID(iterator),
@@ -164,6 +171,7 @@ final class WindowServerClient {
           ($0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value
             == display
         }?.backingScaleFactor ?? 1
+
       result.append(
         WindowSnapshot(
           id: id,

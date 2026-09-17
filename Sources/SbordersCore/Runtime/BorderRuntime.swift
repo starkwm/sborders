@@ -230,57 +230,59 @@ public final class BorderRuntime {
 
       guard self.running else { return }
 
-      do {
-        if self.refreshAll {
-          self.refreshAll = false
-          self.pending = []
-          self.geometryPending = []
-          self.focusPending = false
-          try self.reconcile()
-        } else {
-          let ids = self.pending
-          let geometryIDs = self.geometryPending.subtracting(ids)
-          let needsFocus = self.focusPending
-          self.pending = []
-          self.geometryPending = []
-          self.focusPending = false
-
-          for id in geometryIDs {
-            guard let previous = self.coordinator.windows[id] else { continue }
-
-            if let snapshot = self.server.geometry(of: previous) {
-              self.coordinator.update(snapshot)
-            } else {
-              var hidden = previous
-              hidden.visible = false
-              self.coordinator.update(hidden)
-            }
-          }
-
-          let previous = Set(self.coordinator.windows.keys)
-
-          for id in ids {
-            if let snapshot = self.server.snapshot(id: id) {
-              self.coordinator.update(snapshot)
-            } else if self.transferPending.ids.contains(id),
-              var hidden = self.coordinator.windows[id]
-            {
-              hidden.visible = false
-              self.coordinator.update(hidden)
-            } else {
-              self.coordinator.remove(id)
-            }
-          }
-
-          if previous != Set(self.coordinator.windows.keys) {
-            try self.updateSubscriptions()
-          }
-
-          if needsFocus { self.resolveFocus() }
-          try self.render(only: needsFocus ? nil : ids.union(geometryIDs))
-        }
-      } catch { self.report(error) }
+      do { try self.flush() } catch { self.report(error) }
     }
+  }
+
+  private func flush() throws {
+    let ids = pending
+    let geometryIDs = geometryPending.subtracting(ids)
+    let needsFocus = focusPending
+
+    pending = []
+    geometryPending = []
+    focusPending = false
+
+    if refreshAll {
+      refreshAll = false
+      try reconcile()
+      return
+    }
+
+    for id in geometryIDs {
+      guard let previous = coordinator.windows[id] else { continue }
+
+      if let snapshot = server.geometry(of: previous) {
+        coordinator.update(snapshot)
+      } else {
+        var hidden = previous
+        hidden.visible = false
+        coordinator.update(hidden)
+      }
+    }
+
+    let previous = Set(coordinator.windows.keys)
+
+    for id in ids {
+      if let snapshot = server.snapshot(id: id) {
+        coordinator.update(snapshot)
+      } else if transferPending.ids.contains(id),
+        var hidden = coordinator.windows[id]
+      {
+        hidden.visible = false
+        coordinator.update(hidden)
+      } else {
+        coordinator.remove(id)
+      }
+    }
+
+    if previous != Set(coordinator.windows.keys) {
+      try updateSubscriptions()
+    }
+
+    if needsFocus { resolveFocus() }
+
+    try render(only: needsFocus ? nil : ids.union(geometryIDs))
   }
 
   private func reconcile() throws {

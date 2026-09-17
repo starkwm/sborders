@@ -6,7 +6,6 @@ final class BorderWindow {
   private(set) var redrawCount = 0
   private(set) var transactionCount = 0
   private(set) var contextCreationCount = 0
-  private(set) var frame = CGRect.zero
 
   var ids: [UInt32] { surfaces.map(\.id) }
 
@@ -134,7 +133,6 @@ final class BorderWindow {
     drawing = nil
     appliedTarget = nil
     orderedIn = false
-    frame = .zero
   }
 
   private func position(target: WindowSnapshot, geometry: BorderGeometry) throws {
@@ -158,7 +156,6 @@ final class BorderWindow {
 
     api.commit(transaction, 0)
     transactionCount += 1
-    frame = geometry.frame
     appliedTarget = target
     orderedIn = true
   }
