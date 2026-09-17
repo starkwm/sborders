@@ -60,6 +60,7 @@ func window(id: UInt32 = 1, pid: Int32 = 10, visible: Bool = true, fullscreen: B
 @Test func filtersVisibleWindows() {
   var state = BorderCoordinator()
   state.replace([window()])
+
   var config = Configuration()
   config.includeApps = [AppMatcher(bundleID: "test.app")]
 
@@ -84,6 +85,7 @@ func window(id: UInt32 = 1, pid: Int32 = 10, visible: Bool = true, fullscreen: B
 
 @Test func decodesUnalignedEvents() {
   let bytes: [UInt8] = [255, 0, 0, 0, 0, 0, 0, 0, 0, 42, 0, 0, 0]
+
   bytes.withUnsafeBytes { raw in
     let pointer = raw.baseAddress!.advanced(by: 1)
 
@@ -126,8 +128,10 @@ func window(id: UInt32 = 1, pid: Int32 = 10, visible: Bool = true, fullscreen: B
     (811, .changed), (815, .changed), (816, .hidden), (1322, .focus),
     (723, .focus), (1325, .created), (1326, .removedFromSpace),
   ]
+
   for (code, kind) in cases {
     let words: [UInt32] = code == 1325 || code == 1326 ? [0, 0, 42] : [42]
+
     words.withUnsafeBytes { bytes in
       let event = WindowEvent.decode(code: code, data: bytes.baseAddress, count: bytes.count)
 

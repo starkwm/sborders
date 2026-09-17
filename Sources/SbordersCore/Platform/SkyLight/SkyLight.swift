@@ -75,6 +75,7 @@ final class SkyLight {
     }
 
     self.handle = handle
+
     func load<T>(_ name: String) throws -> T {
       guard let pointer = dlsym(handle, name) else {
         throw MessageError.message("Required WindowServer function is unavailable: \(name).")

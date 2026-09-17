@@ -28,6 +28,7 @@ final class MissionControlObserver {
     state.entered(at: ProcessInfo.processInfo.systemUptime)
 
     if !wasActive { onChange?() }
+
     watchForExit()
   }
 
@@ -112,6 +113,7 @@ struct MissionControlState {
 
   mutating func entered(at time: TimeInterval) {
     isActive = true
+
     // The notification can precede creation of the overview window.
     earliestExit = time + 0.5
     missingSamples = 0
@@ -128,6 +130,7 @@ struct MissionControlState {
       missingSamples = 0
     } else if isActive && time >= earliestExit {
       missingSamples += 1
+
       // Avoid restoring borders during a transient gap between Dock windows.
       if missingSamples >= 2 { isActive = false }
     }

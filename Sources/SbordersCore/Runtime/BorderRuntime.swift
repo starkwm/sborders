@@ -44,6 +44,7 @@ public final class BorderRuntime {
   public func run() throws {
     NSApplication.shared.setActivationPolicy(.prohibited)
     try checkFocusMode(store.configuration, prompt: true)
+
     let control = ControlServer(
       path: store.url.deletingLastPathComponent().appending(path: "control.sock").path,
       onStop: { [weak self] in
@@ -55,9 +56,11 @@ public final class BorderRuntime {
         return await self.handle(request)
       }
     )
+
     self.control = control
     try control.start()
     running = true
+
     do {
       try events.start { [weak self] event in DispatchQueue.main.async { self?.receive(event) } }
       missionControl.start { [weak self] in
@@ -107,6 +110,7 @@ public final class BorderRuntime {
     transfers.removeAll()
 
     for check in resizeChecks.values { check.cancel() }
+
     resizeChecks = [:]
     events.stop()
     missionControl.stop()
@@ -122,9 +126,11 @@ public final class BorderRuntime {
     observers = []
 
     for source in signals { source.cancel() }
+
     signals = []
 
     for border in borders.values { border.close() }
+
     borders = [:]
     ownedIDs = []
     control?.stop()
@@ -150,6 +156,7 @@ public final class BorderRuntime {
     guard running else { return }
 
     if let id = event.windowID, ownedIDs.contains(id) { return }
+
     eventCount += 1
 
     if event.kind == .missionControl {
@@ -177,6 +184,7 @@ public final class BorderRuntime {
       pending.remove(id)
       geometryPending.remove(id)
       resizeChecks.removeValue(forKey: id)?.cancel()
+
       do { try updateSubscriptions() } catch { report(error) }
       updateOwnedIDs()
     } else if event.kind == .removedFromSpace, let id = event.windowID {
@@ -209,6 +217,7 @@ public final class BorderRuntime {
     if event.kind != .moved && event.kind != .resized { focusPending = true }
 
     if event.kind == .spaces || event.kind == .refresh { refreshAll = true }
+
     schedule()
 
     if event.kind == .spaces || (event.kind == .focus && event.windowID == nil)
@@ -321,6 +330,7 @@ public final class BorderRuntime {
 
   private func resolveFocus() {
     focusQueryCount += 1
+
     let id =
       store.configuration.focusMode == .accessibility
       ? accessibility?.focusedWindow() : server.frontWindow(in: Array(coordinator.windows.values))
@@ -446,6 +456,7 @@ public final class BorderRuntime {
     guard configuration.focusMode == .accessibility else { return }
 
     if accessibility == nil { accessibility = try AccessibilityFocus() }
+
     try accessibility?.checkPermission(prompt: prompt)
   }
 

@@ -15,7 +15,6 @@ import Testing
       "width": 5, /* between values */
       "excludeApps": [{"processName": "https://example.test/*name*/",},],
     }
-
     """#
   )
 
@@ -56,8 +55,10 @@ func rejectsInvalidConfiguration(_ json: String) {
   let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
   try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
   defer { try? FileManager.default.removeItem(at: directory) }
+
   let url = directory.appending(path: "config.json")
   try Data(#"{"width":5}"#.utf8).write(to: url)
+
   let store = try ConfigurationStore(url: url, allowMissing: false)
   try store.set("width", value: "6")
   try Data(#"{"width":-1}"#.utf8).write(to: url)
@@ -131,6 +132,7 @@ func rejectsInvalidConfiguration(_ json: String) {
   let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
   try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
   defer { try? FileManager.default.removeItem(at: directory) }
+
   let jsonc = directory.appending(path: "config.jsonc")
   try Data("invalid".utf8).write(to: jsonc)
   try Data("{}".utf8).write(to: directory.appending(path: "config.json"))
@@ -150,8 +152,10 @@ func rejectsInvalidConfiguration(_ json: String) {
 @Test @MainActor func rejectedSettingPreservesOverrides() throws {
   let url = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString + ".json")
   let store = try ConfigurationStore(url: url, allowMissing: true)
+
   for hasOverrides in [false, true] {
     if hasOverrides { try store.set("width", value: "6") }
+
     let original = store.configuration
 
     #expect(throws: MessageError.self) {
@@ -166,6 +170,7 @@ func rejectsInvalidConfiguration(_ json: String) {
     #expect(store.configuration == original)
     #expect(store.hasOverrides == hasOverrides)
   }
+
   try store.set("width", value: "7") { candidate in
     #expect(candidate.width == 7)
     #expect(store.configuration.width == 6)
