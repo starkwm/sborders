@@ -6,6 +6,7 @@ import Testing
 @Test func geometryPreservesTargetCutoutAcrossNegativeCoordinates() throws {
   let target = CGRect(x: -1000, y: -200, width: 400, height: 300)
   let geometry = try #require(BorderGeometry(target: target, width: 4, radius: 16))
+
   #expect(geometry.frame == CGRect(x: -1006, y: -206, width: 412, height: 312))
   #expect(geometry.inner.offsetBy(dx: geometry.frame.minX, dy: geometry.frame.minY) == target)
   #expect(geometry.outer.width == 408)
@@ -15,6 +16,7 @@ import Testing
   #expect(
     BorderGeometry(target: CGRect(x: 0, y: 0, width: 1, height: 1), width: 4, radius: 16) == nil
   )
+
   #expect(
     BorderGeometry(
       target: CGRect(x: 0, y: 0, width: CGFloat.infinity, height: 5),
@@ -23,6 +25,7 @@ import Testing
     )
       == nil
   )
+
   #expect(
     try #require(
       BorderGeometry(target: CGRect(x: 0, y: 0, width: 8, height: 10), width: 4, radius: 16)
@@ -32,6 +35,7 @@ import Testing
 
 @Test func coloursUseAlphaLast() throws {
   let color = try #require(BorderColor(hex: "#FF008080"))
+
   #expect(color.red == 1)
   #expect(color.green == 0)
   #expect(color.blue == 128.0 / 255)
@@ -63,6 +67,7 @@ func rendererLeavesTheWindowInteriorAndPaddingTransparent(_ style: Configuration
     style: style
   )
   let bytes = try #require(context.data).assumingMemoryBound(to: UInt8.self)
+
   #expect(bytes[21 * 208 + 26 * 4 + 3] == 0)
   #expect(bytes[21 * 208 + 0 * 4 + 3] == 0)
   #expect(bytes[21 * 208 + 3 * 4] == 255)

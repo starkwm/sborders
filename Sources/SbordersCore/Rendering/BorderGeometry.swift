@@ -12,6 +12,7 @@ struct BorderGeometry: Equatable {
       [target.minX, target.minY, target.width, target.height, width, radius].allSatisfy(\.isFinite),
       target.width >= 2, target.height >= 2, width > 0
     else { return nil }
+
     let padding = width + 2
     frame = target.insetBy(dx: -padding, dy: -padding)
     inner = CGRect(origin: CGPoint(x: padding, y: padding), size: target.size)

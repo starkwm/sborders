@@ -26,6 +26,7 @@ final class MissionControlObserver {
   func entered() {
     let wasActive = isActive
     state.entered(at: ProcessInfo.processInfo.systemUptime)
+
     if !wasActive { onChange?() }
     watchForExit()
   }
@@ -33,11 +34,13 @@ final class MissionControlObserver {
   func windowCreated(id: UInt32) {
     var connection: Int32 = 0
     var pid: Int32 = 0
+
     guard api.getOwner(api.connection, id, &connection) == 0,
       api.getPID(connection, &pid) == 0,
       let owner = NSRunningApplication(processIdentifier: pid)?.bundleIdentifier,
       owner == "com.apple.dock" || owner == "com.apple.WindowManager"
     else { return }
+
     checkForEntry()
   }
 
@@ -58,16 +61,21 @@ final class MissionControlObserver {
   private func sample() {
     let wasActive = isActive
     state.update(overviewVisible: overviewVisible(), at: ProcessInfo.processInfo.systemUptime)
+
     if wasActive != isActive { onChange?() }
   }
 
   private func watchForExit() {
     guard poll == nil else { return }
+
     poll = Task { [weak self] in
       while !Task.isCancelled {
         do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
+
         guard let self else { return }
+
         self.sample()
+
         if !self.isActive && ProcessInfo.processInfo.systemUptime >= self.checkUntil {
           self.poll = nil
           return
@@ -79,6 +87,7 @@ final class MissionControlObserver {
   private func overviewVisible() -> Bool? {
     guard let windows = CGWindowListCopyWindowInfo(.optionOnScreenOnly, 0) as? [[String: Any]]
     else { return nil }
+
     // Dock owns the overview on macOS 26. WindowManager owns its shield on
     // macOS 27. Titles are redacted without Screen Recording permission.
     return windows.contains { window in
@@ -86,6 +95,7 @@ final class MissionControlObserver {
         layer == 18 || layer == 19,
         let pid = window[kCGWindowOwnerPID as String] as? Int32
       else { return false }
+
       return Self.isOverview(
         owner: NSRunningApplication(processIdentifier: pid)?.bundleIdentifier,
         layer: layer
@@ -112,6 +122,7 @@ struct MissionControlState {
       missingSamples = 0
       return
     }
+
     if overviewVisible {
       isActive = true
       missingSamples = 0

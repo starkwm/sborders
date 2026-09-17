@@ -73,16 +73,21 @@ final class SkyLight {
     else {
       throw MessageError.message("Cannot load SkyLight. A logged-in macOS desktop is required.")
     }
+
     self.handle = handle
     func load<T>(_ name: String) throws -> T {
       guard let pointer = dlsym(handle, name) else {
         throw MessageError.message("Required WindowServer function is unavailable: \(name).")
       }
+
       return unsafeBitCast(pointer, to: T.self)
     }
+
     let mainConnection: @convention(c) () -> Int32 = try load("SLSMainConnectionID")
     connection = mainConnection()
+
     guard connection != 0 else { throw MessageError.message("Cannot connect to WindowServer.") }
+
     getBounds = try load("SLSGetWindowBounds")
     getSublevel = try load("SLSGetWindowSubLevel")
     getOwner = try load("SLSGetWindowOwner")

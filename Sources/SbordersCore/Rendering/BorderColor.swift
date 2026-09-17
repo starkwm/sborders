@@ -12,6 +12,7 @@ struct BorderColor: Equatable, Sendable {
     guard hex.first == "#", [7, 9].contains(hex.utf8.count),
       let value = UInt32(hex.dropFirst(), radix: 16)
     else { return nil }
+
     let rgba = hex.utf8.count == 7 ? (value << 8) | 255 : value
     red = Double((rgba >> 24) & 255) / 255
     green = Double((rgba >> 16) & 255) / 255

@@ -10,11 +10,13 @@ final class BorderWindow {
 
   var currentFrame: CGRect? {
     var rect = CGRect.zero
+
     return id != 0 && api.getBounds(api.connection, id, &rect) == 0 ? rect : nil
   }
 
   var isVisible: Bool {
     var visible = false
+
     return id != 0 && api.isOrdered(api.connection, id, &visible) == 0 && visible
   }
 
@@ -45,6 +47,7 @@ final class BorderWindow {
       hide(target: target.id)
       return
     }
+
     let next = Drawing(
       size: geometry.frame.size,
       width: configuration.width,
@@ -53,46 +56,60 @@ final class BorderWindow {
       style: configuration.style,
       color: focused ? configuration.activeColor : configuration.inactiveColor
     )
+
     if orderedIn && drawing == next, var previous = appliedTarget {
       if previous == target && !forceOrder { return }
       previous.frame = target.frame
+
       if previous == target && !forceOrder {
         try position(target: target, frame: geometry.frame)
         return
       }
     }
+
     if id == 0 {
       var local = CGRect(origin: .zero, size: geometry.frame.size)
       let region = try region(&local)
+
       guard api.newWindow(api.connection, 2, -10000, -10000, region, &id) == 0, id != 0 else {
         close()
         throw MessageError.message("Cannot create a border window.")
       }
+
       spaces =
         (api.copySpaces(api.connection, 7, [id] as CFArray)?.takeRetainedValue() as? [NSNumber]
         ?? []).map(\.uint64Value)
       api.setOpacity(api.connection, id, false)
       api.shadow(id, ["com.apple.WindowShadowDensity": 0] as CFDictionary)
     }
+
     var tags: UInt64 = (1 << 1) | (1 << 9) | (1 << 18)
+
     if target.sticky { tags |= 1 << 11 }
     api.setTags(api.connection, id, &tags, 64)
+
     if !target.sticky {
       var sticky: UInt64 = 1 << 11
       api.clearTags(api.connection, id, &sticky, 64)
     }
+
     if spaces != target.spaces {
       let previous = Set(spaces)
       let next = Set(target.spaces)
       let added = Array(next.subtracting(previous))
       let removed = Array(previous.subtracting(next))
+
       if !added.isEmpty { api.addToSpaces(api.connection, [id] as CFArray, added as CFArray) }
+
       if !removed.isEmpty {
         api.removeFromSpaces(api.connection, [id] as CFArray, removed as CFArray)
       }
+
       spaces = target.spaces
     }
+
     if drawing?.scale != next.scale { api.setResolution(api.connection, id, next.scale) }
+
     if frame.size != geometry.frame.size {
       var local = CGRect(origin: .zero, size: geometry.frame.size)
       api.setShape(
@@ -103,6 +120,7 @@ final class BorderWindow {
         try region(&local)
       )
     }
+
     // Rebind after shape or resolution changes so drawing covers the current
     // backing store, including newly exposed pixels when the window grows.
     if context == nil || drawing?.size != next.size || drawing?.scale != next.scale {
@@ -113,14 +131,17 @@ final class BorderWindow {
         frame = .zero
         throw MessageError.message("Cannot create a border drawing context.")
       }
+
       context = replacement
       contextCreationCount += 1
     }
+
     if drawing != next {
       draw(geometry, drawing: next)
       drawing = next
       redrawCount += 1
     }
+
     try position(target: target, frame: geometry.frame)
   }
 
@@ -129,6 +150,7 @@ final class BorderWindow {
     else {
       return
     }
+
     orderedIn = false
     api.order(transaction, id, 0, target)
     api.commit(transaction, 0)
@@ -137,6 +159,7 @@ final class BorderWindow {
 
   func close() {
     context = nil
+
     if id != 0 { api.releaseWindow(api.connection, id) }
     id = 0
     spaces = []
@@ -150,11 +173,15 @@ final class BorderWindow {
     guard let transaction = api.transaction(api.connection)?.takeRetainedValue() else {
       throw MessageError.message("Cannot begin border transaction.")
     }
+
     api.move(transaction, id, frame.origin)
+
     if appliedTarget?.level != target.level { api.setLevel(transaction, id, target.level) }
+
     if appliedTarget?.sublevel != target.sublevel {
       api.setSublevel(transaction, id, target.sublevel)
     }
+
     api.order(transaction, id, -1, target.id)
     api.commit(transaction, 0)
     transactionCount += 1
@@ -165,14 +192,17 @@ final class BorderWindow {
 
   private func region(_ rect: inout CGRect) throws -> CFTypeRef {
     var raw: Unmanaged<CFTypeRef>?
+
     guard api.newRegion(&rect, &raw) == 0, let raw else {
       throw MessageError.message("Cannot create border region.")
     }
+
     return raw.takeRetainedValue()
   }
 
   private func draw(_ geometry: BorderGeometry, drawing: Drawing) {
     guard let context, let color = BorderColor(hex: drawing.color) else { return }
+
     BorderRenderer.draw(in: context, geometry: geometry, color: color, style: drawing.style)
     context.flush()
     api.flush(api.connection, id, nil)

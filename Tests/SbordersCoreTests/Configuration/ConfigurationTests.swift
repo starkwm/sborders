@@ -3,10 +3,6 @@ import Testing
 
 @testable import SbordersCore
 
-private func decode(_ text: String) throws -> Configuration {
-  try ConfigurationFile.decode(Data(text.utf8))
-}
-
 @Test func decodesDefaults() throws {
   #expect(try decode("{}") == Configuration())
 }
@@ -19,8 +15,10 @@ private func decode(_ text: String) throws -> Configuration {
       "width": 5, /* between values */
       "excludeApps": [{"processName": "https://example.test/*name*/",},],
     }
+
     """#
   )
+
   #expect(config.width == 5)
   #expect(config.excludeApps.first?.processName == "https://example.test/*name*/")
 }
@@ -51,6 +49,7 @@ func rejectsInvalidConfiguration(_ json: String) {
 
 @Test func runtimeSettingsValidateBeforeChangingState() throws {
   let original = Configuration()
+
   #expect(throws: (any Error).self) { try original.setting("width", value: "-2") }
   #expect(original.width == 4)
   #expect(try original.setting("activeColor", value: "#ABCDEF80").activeColor == "#ABCDEF80")
@@ -66,12 +65,15 @@ func rejectsInvalidConfiguration(_ json: String) {
   let store = try ConfigurationStore(url: url, allowMissing: false)
   try store.set("width", value: "6")
   try Data(#"{"width":-1}"#.utf8).write(to: url)
+
   #expect(throws: (any Error).self) { try store.reload() }
   #expect(store.configuration.width == 6)
   #expect(store.hasOverrides)
   #expect(store.lastError != nil)
+
   try Data(#"{"width":7}"#.utf8).write(to: url, options: .atomic)
   try store.reload()
+
   #expect(store.configuration.width == 7)
   #expect(!store.hasOverrides)
   #expect(store.lastError == nil)
@@ -79,6 +81,7 @@ func rejectsInvalidConfiguration(_ json: String) {
 
 @Test @MainActor func missingDefaultAndExplicitFilesDiffer() throws {
   let url = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString + ".json")
+
   #expect(try ConfigurationStore(url: url, allowMissing: true).configuration == Configuration())
   #expect(throws: (any Error).self) { try ConfigurationStore(url: url, allowMissing: false) }
   #expect(throws: (any Error).self) { try ConfigurationFile.validate(url: url) }
@@ -91,6 +94,7 @@ func rejectsInvalidConfiguration(_ json: String) {
   let jsonc = directory.appending(path: "config.jsonc")
   try Data("invalid".utf8).write(to: jsonc)
   try Data("{}".utf8).write(to: directory.appending(path: "config.json"))
+
   #expect(ConfigurationFile.defaultURL(directory: directory) == jsonc)
   #expect(throws: (any Error).self) {
     try ConfigurationFile.validate(url: ConfigurationFile.defaultURL(directory: directory))
@@ -109,13 +113,16 @@ func rejectsInvalidConfiguration(_ json: String) {
   for hasOverrides in [false, true] {
     if hasOverrides { try store.set("width", value: "6") }
     let original = store.configuration
+
     #expect(throws: MessageError.self) {
       try store.set("focusMode", value: "accessibility") { candidate in
         #expect(candidate.focusMode == .accessibility)
         #expect(store.configuration == original)
+
         throw MessageError.message("Permission denied.")
       }
     }
+
     #expect(store.configuration == original)
     #expect(store.hasOverrides == hasOverrides)
   }
@@ -123,6 +130,11 @@ func rejectsInvalidConfiguration(_ json: String) {
     #expect(candidate.width == 7)
     #expect(store.configuration.width == 6)
   }
+
   #expect(store.configuration.width == 7)
   #expect(store.hasOverrides)
+}
+
+private func decode(_ text: String) throws -> Configuration {
+  try ConfigurationFile.decode(Data(text.utf8))
 }

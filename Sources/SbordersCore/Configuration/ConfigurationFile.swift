@@ -8,6 +8,7 @@ public enum ConfigurationFile {
     )
   ) -> URL {
     let jsonc = directory.appending(path: "config.jsonc")
+
     return FileManager.default.fileExists(atPath: jsonc.path)
       ? jsonc : directory.appending(path: "config.json")
   }
@@ -21,15 +22,18 @@ public enum ConfigurationFile {
   static func decode(_ data: Data) throws -> Configuration {
     do {
       let json = try JSONC.normalized(data, rejectingDuplicateKeys: true)
+
       return try JSONDecoder().decode(Configuration.self, from: json)
     } catch let error as DecodingError {
       let context: DecodingError.Context
+
       switch error {
       case .dataCorrupted(let c), .keyNotFound(_, let c), .typeMismatch(_, let c),
         .valueNotFound(_, let c):
         context = c
       @unknown default: throw error
       }
+
       let path = context.codingPath.map(\.stringValue).joined(separator: ".")
       throw MessageError.message("\(path.isEmpty ? "$" : path): \(context.debugDescription)")
     }
@@ -65,6 +69,7 @@ final class ConfigurationStore {
       fileData = data
       hasOverrides = false
       lastError = nil
+
       return candidate
     } catch {
       lastError = error.localizedDescription

@@ -11,11 +11,15 @@ struct SocketOptions: ParsableArguments {
       path: (socket as NSString).expandingTildeInPath,
       serviceName: "sborders"
     )
+
     try client.send(ControlRequest(command: command, arguments: arguments))
+
     let response = try client.receive(ControlResponse.self)
+
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.sortedKeys]
     print(String(decoding: try encoder.encode(response), as: UTF8.self))
+
     if !response.ok { throw ExitCode.failure }
   }
 }

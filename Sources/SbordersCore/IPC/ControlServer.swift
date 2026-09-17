@@ -15,6 +15,7 @@ final class ControlServer: Sendable {
       errorResponse: { ControlResponse(ok: false, error: $0.localizedDescription) },
       handler: { request in
         let response = await handler(request)
+
         return SocketReply(
           response,
           onComplete: {

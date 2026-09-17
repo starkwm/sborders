@@ -16,11 +16,15 @@ final class PendingWindowTransfers {
     let deadline = ContinuousClock.now.advanced(by: gracePeriod)
     let expiration = Task { [weak self] in
       do { try await Task.sleep(until: deadline, clock: .continuous) } catch { return }
+
       guard !Task.isCancelled, let self else { return }
+
       self.expirations.removeValue(forKey: id)
       onExpiry()
     }
+
     expirations[id] = expiration
+
     return expiration
   }
 

@@ -18,8 +18,10 @@ import Testing
   let response = try await Task.detached {
     let client = try SocketClient(path: path, serviceName: "sborders")
     try client.send(ControlRequest(command: "query", arguments: ["config"]))
+
     return try client.receive(ControlResponse.self)
   }.value
+
   #expect(response.ok)
   #expect(response.value == .array([.string("query"), .string("config")]))
 }
@@ -33,18 +35,23 @@ func onlySuccessfulStopRepliesTriggerShutdown(command: String) async throws {
     let server = ControlServer(path: path, onStop: { stopped() }) { request in
       ControlResponse(ok: request.arguments.isEmpty, error: request.arguments.first)
     }
+
     do {
       try server.start()
       defer { server.stop() }
+
       for arguments in [["rejected"], []] {
         let response = try await Task.detached {
           let client = try SocketClient(path: path, serviceName: "sborders")
           try client.send(ControlRequest(command: command, arguments: arguments))
+
           return try client.receive(ControlResponse.self)
         }.value
+
         #expect(response.ok == arguments.isEmpty)
         #expect(response.error == arguments.first)
       }
+
       // Synchronise with the server queue so the completion callback has finished.
       server.stop()
     } catch {
