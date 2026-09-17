@@ -42,7 +42,7 @@ final class WindowServerClient {
       [frame.minX, frame.minY, frame.width, frame.height].allSatisfy(\.isFinite)
     else { return nil }
 
-    if displayIntersecting(frame) != displayIntersecting(previous.frame) {
+    if display(for: frame) != display(for: previous.frame) {
       try? refreshSpaces()
 
       return snapshot(id: previous.id)
@@ -165,7 +165,7 @@ final class WindowServerClient {
       let app = NSRunningApplication(processIdentifier: pid)
       let radiusValues = api.radii?(iterator)?.takeRetainedValue() as? [NSNumber]
       let radius = radiusValues?.first?.doubleValue ?? 9
-      let display = displayIntersecting(frame)
+      let display = display(for: frame)
       let scale =
         NSScreen.screens.first {
           ($0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value
@@ -194,7 +194,7 @@ final class WindowServerClient {
     return result
   }
 
-  private func displayIntersecting(_ rect: CGRect) -> CGDirectDisplayID {
+  private func display(for rect: CGRect) -> CGDirectDisplayID {
     var display: CGDirectDisplayID = 0
     var count: UInt32 = 0
     CGGetDisplaysWithRect(rect, 1, &display, &count)

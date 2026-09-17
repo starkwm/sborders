@@ -3,7 +3,7 @@ import Testing
 
 @testable import SbordersCore
 
-func fixtureWindow(id: UInt32 = 1, pid: Int32 = 10, visible: Bool = true, fullscreen: Bool = false)
+func window(id: UInt32 = 1, pid: Int32 = 10, visible: Bool = true, fullscreen: Bool = false)
   -> WindowSnapshot
 {
   WindowSnapshot(
@@ -23,30 +23,30 @@ func fixtureWindow(id: UInt32 = 1, pid: Int32 = 10, visible: Bool = true, fullsc
   )
 }
 
-@Test func closingAndReusingAnIDDoesNotRetainFocus() {
+@Test func reusedIDClearsFocus() {
   var state = BorderCoordinator()
-  state.update(fixtureWindow())
+  state.update(window())
   state.focus(1)
   state.remove(1)
-  state.update(fixtureWindow(pid: 20))
+  state.update(window(pid: 20))
 
   #expect(state.focusedID == nil)
   #expect(state.windows[1]?.pid == 20)
 }
 
-@Test func reconciliationRemovesAbsentWindowsAndToleratesDuplicates() {
+@Test func replacesWindows() {
   var state = BorderCoordinator()
-  state.replace([fixtureWindow(), fixtureWindow(id: 2)])
+  state.replace([window(), window(id: 2)])
   state.focus(2)
-  state.replace([fixtureWindow(), fixtureWindow()])
+  state.replace([window(), window()])
 
   #expect(state.windows.count == 1)
   #expect(state.focusedID == nil)
 }
 
-@Test func hiddenAndFullscreenWindowsCannotBeFocusedOrRendered() {
+@Test func skipsHiddenAndFullscreenWindows() {
   var state = BorderCoordinator()
-  state.replace([fixtureWindow(visible: false), fixtureWindow(id: 2, fullscreen: true)])
+  state.replace([window(visible: false), window(id: 2, fullscreen: true)])
   state.focus(1)
 
   #expect(state.focusedID == nil)
@@ -57,9 +57,9 @@ func fixtureWindow(id: UInt32 = 1, pid: Int32 = 10, visible: Bool = true, fullsc
   #expect(state.visibleWindows(configuration: Configuration()).isEmpty)
 }
 
-@Test func exclusionWinsAndDisabledClearsBorders() {
+@Test func filtersVisibleWindows() {
   var state = BorderCoordinator()
-  state.replace([fixtureWindow()])
+  state.replace([window()])
   var config = Configuration()
   config.includeApps = [AppMatcher(bundleID: "test.app")]
 
@@ -75,14 +75,14 @@ func fixtureWindow(id: UInt32 = 1, pid: Int32 = 10, visible: Bool = true, fullsc
   #expect(state.visibleWindows(configuration: config).isEmpty)
 }
 
-@Test func eligibilityExcludesAttachedAndCycleIgnoringWindows() {
+@Test func filtersIneligibleWindows() {
   #expect(WindowEligibility.accepts(parent: 0, attributes: 2, tags: 1))
   #expect(!WindowEligibility.accepts(parent: 1, attributes: 2, tags: 1))
   #expect(!WindowEligibility.accepts(parent: 0, attributes: 2, tags: 1 | (1 << 7)))
   #expect(!WindowEligibility.accepts(parent: 0, attributes: 2, tags: 1 | (1 << 18)))
 }
 
-@Test func eventDecodingChecksLengthAndReadsUnalignedPayloads() {
+@Test func decodesUnalignedEvents() {
   let bytes: [UInt8] = [255, 0, 0, 0, 0, 0, 0, 0, 0, 42, 0, 0, 0]
   bytes.withUnsafeBytes { raw in
     let pointer = raw.baseAddress!.advanced(by: 1)
@@ -95,15 +95,15 @@ func fixtureWindow(id: UInt32 = 1, pid: Int32 = 10, visible: Bool = true, fullsc
   #expect(WindowEvent.decode(code: 1508, data: nil, count: 0)?.kind == .focus)
 }
 
-@Test func spaceRemovalPreservesLiveWindowsUntilTheyReturn() {
+@Test func retainsWindowsDuringTransfer() {
   var state = BorderCoordinator()
-  state.update(fixtureWindow())
+  state.update(window())
   state.reconcile([], liveIDs: [1], preservingIDs: [1])
 
   #expect(state.windows[1]?.visible == false)
   #expect(state.visibleWindows(configuration: Configuration()).isEmpty)
 
-  state.reconcile([fixtureWindow()], liveIDs: [1])
+  state.reconcile([window()], liveIDs: [1])
 
   #expect(state.windows[1]?.visible == true)
 
@@ -112,15 +112,15 @@ func fixtureWindow(id: UInt32 = 1, pid: Int32 = 10, visible: Bool = true, fullsc
   #expect(state.windows.isEmpty)
 }
 
-@Test func failedLivenessQueryDoesNotDestroyTrackedWindows() {
+@Test func retainsWindowsAfterFailedQuery() {
   var state = BorderCoordinator()
-  state.update(fixtureWindow())
+  state.update(window())
   state.reconcile([], liveIDs: nil, preservingIDs: [1])
 
   #expect(state.windows[1]?.visible == false)
 }
 
-@Test func geometryAndLifecycleNotificationsRemainDistinct() {
+@Test func decodesEventKinds() {
   let cases: [(UInt32, WindowEvent.Kind)] = [
     (804, .closed), (806, .moved), (807, .resized), (808, .changed),
     (811, .changed), (815, .changed), (816, .hidden), (1322, .focus),
@@ -136,9 +136,9 @@ func fixtureWindow(id: UInt32 = 1, pid: Int32 = 10, visible: Bool = true, fullsc
   }
 }
 
-@Test func expiredTransferDoesNotRetainClosedButStillAllocatedWindows() {
+@Test func removesExpiredTransfers() {
   var state = BorderCoordinator()
-  state.update(fixtureWindow())
+  state.update(window())
   state.reconcile([], liveIDs: [1], preservingIDs: [1])
 
   #expect(state.windows[1] != nil)

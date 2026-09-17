@@ -2,14 +2,14 @@ import Testing
 
 @testable import SbordersCore
 
-@Test func missionControlEntryDoesNotReadAWindowID() {
+@Test func decodesMissionControlEntry() {
   #expect(
     WindowEvent.decode(code: 1204, data: nil, count: 0)
       == WindowEvent(kind: .missionControl, windowID: nil)
   )
 }
 
-@Test func missionControlWaitsForEntryAnimationAndConfirmedExit() {
+@Test func waitsForOverviewExit() {
   var state = MissionControlState()
   state.entered(at: 10)
   state.update(overviewVisible: false, at: 10.1)
@@ -32,7 +32,7 @@ import Testing
   #expect(!state.isActive)
 }
 
-@Test func missionControlDetectsStartupDuringOverviewAndSurvivesFailedQueries() {
+@Test func detectsOverviewAtStartup() {
   var state = MissionControlState()
   state.update(overviewVisible: true, at: 10)
 
@@ -49,7 +49,7 @@ import Testing
   #expect(!state.isActive)
 }
 
-@Test func cancelledMissionControlEntryEventuallyRestoresBorders() {
+@Test func handlesCancelledOverviewEntry() {
   var state = MissionControlState()
   state.entered(at: 10)
   state.update(overviewVisible: false, at: 10.5)
@@ -65,7 +65,7 @@ import Testing
   #expect(state.isActive)
 }
 
-@Test func overviewIdentificationDoesNotNeedWindowTitles() {
+@Test func identifiesOverviewWindows() {
   #expect(MissionControlObserver.isOverview(owner: "com.apple.dock", layer: 18))
   #expect(MissionControlObserver.isOverview(owner: "com.apple.WindowManager", layer: 19))
   #expect(!MissionControlObserver.isOverview(owner: "com.apple.dock", layer: 20))

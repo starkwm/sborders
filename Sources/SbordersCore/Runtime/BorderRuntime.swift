@@ -17,7 +17,7 @@ public final class BorderRuntime {
   private var pending = Set<UInt32>()
   private var geometryPending = Set<UInt32>()
   private var focusPending = false
-  private let transferPending = PendingWindowTransfers()
+  private let transfers = WindowTransfers()
   private var resizeChecks: [UInt32: Task<Void, Never>] = [:]
   private var refreshAll = false
   private var scheduled = false
@@ -104,7 +104,7 @@ public final class BorderRuntime {
     running = false
     retry?.cancel()
     retry = nil
-    transferPending.removeAll()
+    transfers.removeAll()
 
     for check in resizeChecks.values { check.cancel() }
     resizeChecks = [:]
@@ -171,7 +171,7 @@ public final class BorderRuntime {
     }
 
     if event.kind == .closed, let id = event.windowID {
-      transferPending.remove(id)
+      transfers.remove(id)
       coordinator.remove(id)
       borders.removeValue(forKey: id)?.close()
       pending.remove(id)
@@ -180,7 +180,7 @@ public final class BorderRuntime {
       do { try updateSubscriptions() } catch { report(error) }
       updateOwnedIDs()
     } else if event.kind == .removedFromSpace, let id = event.windowID {
-      transferPending.insert(id) { [weak self] in
+      transfers.insert(id) { [weak self] in
         guard let self, self.running else { return }
 
         self.refreshAll = true
@@ -266,7 +266,7 @@ public final class BorderRuntime {
     for id in ids {
       if let snapshot = server.snapshot(id: id) {
         coordinator.update(snapshot)
-      } else if transferPending.ids.contains(id),
+      } else if transfers.ids.contains(id),
         var hidden = coordinator.windows[id]
       {
         hidden.visible = false
@@ -287,7 +287,7 @@ public final class BorderRuntime {
 
   private func reconcile() throws {
     let snapshots = try server.windows()
-    let transferIDs = transferPending.ids
+    let transferIDs = transfers.ids
 
     coordinator.reconcile(
       snapshots,
@@ -297,7 +297,7 @@ public final class BorderRuntime {
 
     for id in transferIDs
     where coordinator.windows[id] == nil || coordinator.windows[id]?.visible == true {
-      transferPending.remove(id)
+      transfers.remove(id)
     }
 
     for id in Array(resizeChecks.keys) where coordinator.windows[id] == nil {
@@ -500,7 +500,7 @@ public final class BorderRuntime {
                 focused: coordinator.focusedID == window.id,
                 borderID: borders[window.id]?.ids.first,
                 borderIDs: borders[window.id]?.ids ?? [],
-                borderFrame: borders[window.id]?.currentFrame,
+                borderFrame: borders[window.id]?.frame,
                 borderVisible: borders[window.id]?.isVisible ?? false,
                 borderSublevel: borders[window.id]?.sublevel,
                 redrawCount: borders[window.id]?.redrawCount ?? 0,
