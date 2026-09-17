@@ -285,14 +285,15 @@ public final class BorderRuntime {
 
   private func reconcile() throws {
     let snapshots = try server.windows()
+    let transferIDs = transferPending.ids
 
     coordinator.reconcile(
       snapshots,
-      liveIDs: transferPending.ids.isEmpty ? nil : server.liveWindowIDs(),
-      preservingIDs: transferPending.ids
+      liveIDs: transferIDs.isEmpty ? nil : server.liveWindowIDs(),
+      preservingIDs: transferIDs
     )
 
-    for id in transferPending.ids
+    for id in transferIDs
     where coordinator.windows[id] == nil || coordinator.windows[id]?.visible == true {
       transferPending.remove(id)
     }
@@ -330,10 +331,13 @@ public final class BorderRuntime {
       ? [] : coordinator.visibleWindows(configuration: store.configuration)
     let visible = Set(targets.map(\.id))
 
-    for id in Array(borders.keys)
-    where coordinator.windows[id] == nil || !store.configuration.enabled
-      || !store.configuration.allows(coordinator.windows[id]!)
-    {
+    for id in Array(borders.keys) {
+      if let window = coordinator.windows[id], store.configuration.enabled,
+        store.configuration.allows(window)
+      {
+        continue
+      }
+
       borders.removeValue(forKey: id)?.close()
     }
 

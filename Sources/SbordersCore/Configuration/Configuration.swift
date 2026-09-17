@@ -78,10 +78,7 @@ struct Configuration: Codable, Equatable, Sendable {
     if ["activeColor", "inactiveColor", "style", "focusMode"].contains(key) {
       object[key] = value
     } else {
-      guard let data = value.data(using: .utf8) else {
-        throw MessageError.message("Invalid setting value.")
-      }
-
+      let data = Data(value.utf8)
       let parsed = try JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed])
       try JSONC.rejectDuplicateKeys(data)
       object[key] = parsed
