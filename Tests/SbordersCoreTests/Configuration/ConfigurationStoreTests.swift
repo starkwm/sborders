@@ -86,6 +86,22 @@ struct ConfigurationStoreTests {
     #expect(!store.hasOverrides)
   }
 
+  @Test("set(_:value:validate:): applies typed settings and rejects invalid values")
+  func appliesSettings() throws {
+    let url = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString + ".json")
+    let store = try ConfigurationStore(url: url, allowMissing: true)
+
+    #expect(throws: (any Error).self) { try store.set("width", value: "-2") }
+    #expect(store.configuration == Configuration())
+
+    try store.set("activeColor", value: "#ABCDEF80")
+    try store.set("enabled", value: "false")
+
+    #expect(store.configuration.activeColor == "#ABCDEF80")
+    #expect(!store.configuration.enabled)
+    #expect(store.hasOverrides)
+  }
+
   @Test("set(_:value:validate:): rejected settings preserve overrides")
   func rejectedSettingPreservesOverrides() throws {
     let url = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString + ".json")

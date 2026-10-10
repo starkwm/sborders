@@ -6,7 +6,7 @@ import Testing
 @Suite("BorderRenderer")
 struct BorderRendererTests {
   @Test(
-    "draw(in:geometry:color:style:tile:): draws only the border",
+    "draw(in:geometry:color:style:tile:): draws the border color and clears the interior",
     arguments: [Configuration.Style.round, .square]
   )
   func drawsOnlyTheBorder(_ style: Configuration.Style) throws {
@@ -28,7 +28,7 @@ struct BorderRendererTests {
     BorderRenderer.draw(
       in: context,
       geometry: geometry,
-      color: try #require(BorderColor(hex: "#FF0000")),
+      color: try #require(BorderColor(hex: "#FF008080")),
       style: style
     )
 
@@ -36,7 +36,8 @@ struct BorderRendererTests {
 
     #expect(bytes[21 * 208 + 26 * 4 + 3] == 0)
     #expect(bytes[21 * 208 + 0 * 4 + 3] == 0)
-    #expect(bytes[21 * 208 + 3 * 4] == 255)
-    #expect(bytes[21 * 208 + 3 * 4 + 3] == 255)
+    #expect(abs(Int(bytes[21 * 208 + 3 * 4]) - 128) <= 1)
+    #expect(abs(Int(bytes[21 * 208 + 3 * 4 + 2]) - 64) <= 1)
+    #expect(abs(Int(bytes[21 * 208 + 3 * 4 + 3]) - 128) <= 1)
   }
 }

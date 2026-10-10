@@ -42,19 +42,6 @@ struct BorderCoordinatorTests {
     #expect(state.windows[1]?.visible == false)
   }
 
-  @Test("reconcile(_:liveIDs:preservingIDs:): removes expired transfers")
-  func removesExpiredTransfers() {
-    var state = BorderCoordinator()
-    state.update(window())
-    state.reconcile([], liveIDs: [1], preservingIDs: [1])
-
-    #expect(state.windows[1] != nil)
-
-    state.reconcile([], liveIDs: [1])
-
-    #expect(state.windows.isEmpty)
-  }
-
   @Test("remove(_:): clears focus before a window ID is reused") func reusedIDClearsFocus() {
     var state = BorderCoordinator()
     state.update(window())

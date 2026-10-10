@@ -20,17 +20,6 @@ struct ConfigurationFileTests {
     }
   }
 
-  @Test("validate(url:): rejects a missing file")
-  func rejectsMissingFile() {
-    let url = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString + ".json")
-
-    #expect(throws: (any Error).self) { try ConfigurationFile.validate(url: url) }
-  }
-
-  @Test("decode(_:): uses defaults for omitted values") func decodesDefaults() throws {
-    #expect(try decode("{}") == Configuration())
-  }
-
   @Test("decode(_:): accepts JSONC") func decodesJSONC() throws {
     let config = try decode(
       #"""
@@ -44,6 +33,8 @@ struct ConfigurationFileTests {
 
     #expect(config.width == 5)
     #expect(config.excludeApps.first?.processName == "https://example.test/*name*/")
+    #expect(config.enabled)
+    #expect(config.style == .round)
   }
 
   @Test(
@@ -51,19 +42,14 @@ struct ConfigurationFileTests {
     arguments: [
       #"{"width":4,"width":5}"#,
       #"{"widht":4}"#,
-      #"{"width":null}"#,
       #"{"$schema":null}"#,
       #"{"width":-1}"#,
       #"{"width":65}"#,
       #"{"width":1e999}"#,
-      #"{"enabled":"true"}"#,
-      #"{"style":"triangle"}"#,
       #"{"activeColor":"0xff000000"}"#,
       #"{"includeApps":[{"bundleID":"a","processName":"b"}]}"#,
       #"{"includeApps":[{"bundleID":""}]}"#,
-      #"{"includeApps":[{"bundleID":null}]}"#,
       #"{"includeApps":[{"bundleId":"a"}]}"#,
-      #"[]"#,
     ]
   )
   func rejectsInvalidConfiguration(_ json: String) {

@@ -5,14 +5,6 @@ import Testing
 
 @Suite("WindowEvent")
 struct WindowEventTests {
-  @Test("decode(code:data:count:): recognizes Mission Control entry")
-  func decodesMissionControlEntry() {
-    #expect(
-      WindowEvent.decode(code: 1204, data: nil, count: 0)
-        == WindowEvent(kind: .missionControl, windowID: nil)
-    )
-  }
-
   @Test("decode(code:data:count:): handles unaligned data") func decodesUnalignedEvents() {
     let bytes: [UInt8] = [255, 0, 0, 0, 0, 0, 0, 0, 0, 42, 0, 0, 0]
 
@@ -23,8 +15,6 @@ struct WindowEventTests {
       #expect(WindowEvent.decode(code: 1325, data: pointer, count: 12)?.windowID == 42)
       #expect(WindowEvent.decode(code: 804, data: pointer, count: 0) == nil)
     }
-
-    #expect(WindowEvent.decode(code: 1508, data: nil, count: 0)?.kind == .focus)
   }
 
   @Test("decode(code:data:count:): maps event codes to kinds") func decodesEventKinds() {
@@ -42,6 +32,17 @@ struct WindowEventTests {
 
         #expect(event == WindowEvent(kind: kind, windowID: 42))
       }
+    }
+
+    let notifications: [(UInt32, WindowEvent.Kind)] = [
+      (1204, .missionControl), (1401, .spaces), (1508, .focus),
+    ]
+
+    for (code, kind) in notifications {
+      #expect(
+        WindowEvent.decode(code: code, data: nil, count: 0)
+          == WindowEvent(kind: kind, windowID: nil)
+      )
     }
   }
 }
