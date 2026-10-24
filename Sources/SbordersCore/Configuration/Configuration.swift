@@ -38,16 +38,29 @@ struct Configuration: Codable, Equatable, Sendable {
     try rejectUnknownKeys(decoder, allowed: CodingKeys.allCases.map(\.rawValue))
 
     let values = try decoder.container(keyedBy: CodingKeys.self)
+    let defaults = Configuration()
 
     schema = values.contains(.schema) ? try values.decode(String.self, forKey: .schema) : nil
-    enabled = try values.value(Bool.self, forKey: .enabled, default: true)
-    width = try values.value(Double.self, forKey: .width, default: 4)
-    style = try values.value(Style.self, forKey: .style, default: .round)
-    activeColor = try values.value(String.self, forKey: .activeColor, default: "#E1E3E4")
-    inactiveColor = try values.value(String.self, forKey: .inactiveColor, default: "#00000000")
-    focusMode = try values.value(FocusMode.self, forKey: .focusMode, default: .windowServer)
-    includeApps = try values.value([AppMatcher].self, forKey: .includeApps, default: [])
-    excludeApps = try values.value([AppMatcher].self, forKey: .excludeApps, default: [])
+    enabled = try values.value(Bool.self, forKey: .enabled, default: defaults.enabled)
+    width = try values.value(Double.self, forKey: .width, default: defaults.width)
+    style = try values.value(Style.self, forKey: .style, default: defaults.style)
+    activeColor = try values.value(String.self, forKey: .activeColor, default: defaults.activeColor)
+    inactiveColor = try values.value(
+      String.self,
+      forKey: .inactiveColor,
+      default: defaults.inactiveColor
+    )
+    focusMode = try values.value(FocusMode.self, forKey: .focusMode, default: defaults.focusMode)
+    includeApps = try values.value(
+      [AppMatcher].self,
+      forKey: .includeApps,
+      default: defaults.includeApps
+    )
+    excludeApps = try values.value(
+      [AppMatcher].self,
+      forKey: .excludeApps,
+      default: defaults.excludeApps
+    )
 
     try validate()
   }
