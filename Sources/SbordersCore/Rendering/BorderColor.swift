@@ -10,6 +10,7 @@ struct BorderColor: Equatable, Sendable {
 
   init?(hex: String) {
     guard hex.first == "#", [7, 9].contains(hex.utf8.count),
+      hex.dropFirst().allSatisfy(\.isHexDigit),
       let value = UInt32(hex.dropFirst(), radix: 16)
     else { return nil }
 
