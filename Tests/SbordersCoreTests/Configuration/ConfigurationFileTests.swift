@@ -47,6 +47,7 @@ struct ConfigurationFileTests {
       #"{"width":65}"#,
       #"{"width":1e999}"#,
       #"{"activeColor":"0xff000000"}"#,
+      ##"{"activeColor":"#+FFFFFFF"}"##,
       #"{"includeApps":[{"bundleID":"a","processName":"b"}]}"#,
       #"{"includeApps":[{"bundleID":""}]}"#,
       #"{"includeApps":[{"bundleId":"a"}]}"#,
