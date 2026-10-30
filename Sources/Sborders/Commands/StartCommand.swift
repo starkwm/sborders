@@ -8,22 +8,13 @@ struct StartCommand: ParsableCommand {
     abstract: "Start the border daemon in the foreground."
   )
 
-  @Option(name: .long, help: "Configuration file path.", completion: .file())
-  var config: String?
-
-  mutating func validate() throws {
-    if config?.isEmpty == true { throw ValidationError("Configuration path must not be empty.") }
-  }
+  @OptionGroup var options: ConfigurationOptions
 
   mutating func run() throws {
-    let url =
-      config.map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath).standardizedFileURL }
-      ?? ConfigurationFile.defaultURL()
-
     try MainActor.assumeIsolated {
       let runtime = try BorderRuntime(
-        configurationURL: url,
-        allowMissingConfiguration: config == nil
+        configurationURL: options.url,
+        allowMissingConfiguration: options.config == nil
       )
 
       try runtime.run()

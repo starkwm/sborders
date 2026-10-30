@@ -14,12 +14,9 @@ public final class BorderRuntime {
   private var borders: [UInt32: BorderWindow] = [:]
   private var ownedIDs = Set<UInt32>()
   private var observedIDs = Set<UInt32>()
-  private var pending = Set<UInt32>()
-  private var geometryPending = Set<UInt32>()
-  private var focusPending = false
+  private var pending = PendingUpdates()
   private let transfers = WindowTransfers()
   private var resizeChecks: [UInt32: Task<Void, Never>] = [:]
-  private var refreshAll = false
   private var scheduled = false
   private var running = false
   private var retry: Task<Void, Never>?
@@ -69,7 +66,7 @@ public final class BorderRuntime {
         if self.missionControl.isActive {
           do { try self.render() } catch { self.report(error) }
         } else {
-          self.refreshAll = true
+          self.pending.refresh()
           self.schedule()
           self.scheduleRetry()
         }
@@ -181,8 +178,6 @@ public final class BorderRuntime {
       transfers.remove(id)
       coordinator.remove(id)
       borders.removeValue(forKey: id)?.close()
-      pending.remove(id)
-      geometryPending.remove(id)
       resizeChecks.removeValue(forKey: id)?.cancel()
 
       do { try updateSubscriptions() } catch { report(error) }
@@ -191,7 +186,7 @@ public final class BorderRuntime {
       transfers.insert(id) { [weak self] in
         guard let self, self.running else { return }
 
-        self.refreshAll = true
+        self.pending.refresh()
         self.schedule()
       }
 
@@ -203,20 +198,11 @@ public final class BorderRuntime {
       }
 
       borders[id]?.hide(target: id)
-      refreshAll = true
-    } else if let id = event.windowID {
-      if event.kind == .moved || event.kind == .resized {
-        geometryPending.insert(id)
-
-        if event.kind == .resized { scheduleResizeCheck(id: id) }
-      } else if event.kind != .focus {
-        pending.insert(id)
-      }
+    } else if event.kind == .resized, let id = event.windowID {
+      scheduleResizeCheck(id: id)
     }
 
-    if event.kind != .moved && event.kind != .resized { focusPending = true }
-
-    if event.kind == .spaces || event.kind == .refresh { refreshAll = true }
+    pending.receive(event)
 
     schedule()
 
@@ -244,19 +230,16 @@ public final class BorderRuntime {
   }
 
   private func flush() throws {
-    let ids = pending
-    let geometryIDs = geometryPending.subtracting(ids)
-    let needsFocus = focusPending
+    let updates = pending.take()
 
-    pending = []
-    geometryPending = []
-    focusPending = false
-
-    if refreshAll {
-      refreshAll = false
+    if updates.refreshAll {
       try reconcile()
       return
     }
+
+    let ids = updates.metadataIDs
+    let geometryIDs = updates.geometryIDs
+    let needsFocus = updates.focus
 
     for id in geometryIDs {
       guard let previous = coordinator.windows[id] else { continue }
@@ -381,7 +364,7 @@ public final class BorderRuntime {
       guard let self, self.running else { return }
 
       self.resizeChecks.removeValue(forKey: id)
-      self.geometryPending.insert(id)
+      self.pending.receive(WindowEvent(kind: .moved, windowID: id))
       self.schedule()
     }
   }
@@ -419,7 +402,7 @@ public final class BorderRuntime {
               self.suspended = false
             }
 
-            self.refreshAll = true
+            self.pending.refresh()
             self.schedule()
             self.scheduleRetry()
           }
@@ -485,25 +468,11 @@ public final class BorderRuntime {
     do {
       guard running else { throw MessageError.message("Daemon is stopping.") }
 
-      if request.value != nil {
-        throw MessageError.message("This command does not accept a value payload.")
-      }
-
-      if ["stop", "reload"].contains(request.command), !request.arguments.isEmpty {
-        throw MessageError.message("\(request.command) does not accept arguments.")
-      }
-
-      if request.command == "query", request.arguments.count > 1 {
-        throw MessageError.message("Choose one query subject.")
-      }
-
-      switch request.command {
-      case "query":
-        let subject = request.arguments.first ?? "diagnostics"
-
+      switch try RuntimeCommand(request) {
+      case .query(let subject):
         switch subject {
-        case "config": return try response(store.configuration)
-        case "windows":
+        case .config: return try response(store.configuration)
+        case .windows:
           return try response(
             coordinator.windows.values.sorted { $0.id < $1.id }.map { window in
               WindowStatus(
@@ -520,7 +489,7 @@ public final class BorderRuntime {
               )
             }
           )
-        case "diagnostics":
+        case .diagnostics:
           return try response(
             Diagnostics(
               pid: getpid(),
@@ -541,23 +510,17 @@ public final class BorderRuntime {
               missionControlActive: missionControl.isActive
             )
           )
-        default: throw MessageError.message("Unknown query: \(subject).")
         }
 
-      case "reload": try reload()
-      case "set":
-        guard request.arguments.count == 2 else {
-          throw MessageError.message("set requires a property and value.")
-        }
-
-        try store.set(request.arguments[0], value: request.arguments[1]) { candidate in
+      case .reload: try reload()
+      case .set(let property, let value):
+        try store.set(property, value: value) { candidate in
           try self.checkFocusMode(candidate, prompt: true)
         }
 
         resolveFocus()
         try render()
-      case "stop": break
-      default: throw MessageError.message("Unknown command: \(request.command).")
+      case .stop: break
       }
 
       return ControlResponse()
