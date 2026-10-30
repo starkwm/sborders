@@ -41,7 +41,7 @@ final class BorderWindow {
   private let api: SkyLight
   private var surfaces: [BorderSurface] = []
   private var drawing: Drawing?
-  private var appliedTarget: WindowSnapshot?
+  private var appliedTarget: BorderPlacement?
   private var orderedIn = false
 
   init(api: SkyLight) { self.api = api }
@@ -79,15 +79,17 @@ final class BorderWindow {
       color: hex
     )
 
-    if orderedIn && drawing == next && !forceOrder, var previous = appliedTarget {
-      if previous == target { return }
-
-      previous.frame = target.frame
-
-      if previous == target {
-        try position(target: target, geometry: geometry)
-        return
-      }
+    switch BorderPlacement(target).update(
+      from: appliedTarget,
+      drawingChanged: drawing != next,
+      orderedIn: orderedIn,
+      forceOrder: forceOrder
+    ) {
+    case .unchanged: return
+    case .position:
+      try position(target: target, geometry: geometry)
+      return
+    case .prepare: break
     }
 
     let tiles = geometry.tiles(scale: target.scale, style: configuration.style)
@@ -166,7 +168,7 @@ final class BorderWindow {
 
     api.commit(transaction, 0)
     transactionCount += 1
-    appliedTarget = target
+    appliedTarget = BorderPlacement(target)
     orderedIn = true
   }
 }

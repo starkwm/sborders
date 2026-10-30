@@ -8,19 +8,10 @@ struct ValidateCommand: ParsableCommand {
     abstract: "Check configuration without starting the daemon."
   )
 
-  @Option(name: .long, help: "Configuration file path.", completion: .file())
-  var config: String?
-
-  mutating func validate() throws {
-    if config?.isEmpty == true { throw ValidationError("Configuration path must not be empty.") }
-  }
+  @OptionGroup var options: ConfigurationOptions
 
   mutating func run() throws {
-    let url =
-      config.map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) }
-      ?? ConfigurationFile.defaultURL()
-
-    try ConfigurationFile.validate(url: url)
+    try ConfigurationFile.validate(url: options.url)
     print("Configuration is valid.")
   }
 }
