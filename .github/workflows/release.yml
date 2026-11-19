@@ -17,7 +17,7 @@ jobs:
     if: github.repository == 'starkwm/sborders' && !github.event.deleted
     permissions:
       contents: write
-    uses: starkwm/workflows/.github/workflows/release-bottle.yml@a2eabb6251b6ce3e9d8daeababb362ead26ac7e2
+    uses: starkwm/workflows/.github/workflows/release-bottle.yml@fb41a4e2c943e782f0f0cc791a920679b415b101
     with:
       version-prefix: sborders version
     secrets:
