@@ -5,7 +5,7 @@ struct Sborders: ParsableCommand {
   static let configuration = CommandConfiguration(
     commandName: "sborders",
     abstract: "Window borders for macOS.",
-    version: Version.current,
+    version: "sborders version \(Version.current)",
     subcommands: [
       StartCommand.self, ValidateCommand.self, QueryCommand.self, ReloadCommand.self,
       SetCommand.self, StopCommand.self,
