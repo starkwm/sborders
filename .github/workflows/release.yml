@@ -18,5 +18,7 @@ jobs:
     permissions:
       contents: write
     uses: starkwm/workflows/.github/workflows/release-bottle.yml@a2eabb6251b6ce3e9d8daeababb362ead26ac7e2
+    with:
+      version-prefix: sborders version
     secrets:
       HOMEBREW_TAP_APP_PRIVATE_KEY: ${{ secrets.HOMEBREW_TAP_APP_PRIVATE_KEY }}
