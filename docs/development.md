@@ -30,6 +30,8 @@ make test
 make release
 ```
 
+To run one suite, use `make test TEST_ARGS='--filter BorderGeometryTests'`.
+
 `make test` uses Swift Testing with XCTest disabled. It covers configuration validation and reloads, window eligibility and tracking, border geometry and pixels, CLI arguments, and shutdown after a successful socket reply. Keep JSONC syntax and transport edge cases in the shared packages. Sborders tests check its integration and policies.
 
 Desktop checks require a logged-in macOS session. Check movement, resizing, focus, hide/show, minimise/restore, fullscreen, Mission Control, configuration reloads, and shutdown with ordinary application windows.
