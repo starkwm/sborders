@@ -6,13 +6,15 @@ final class WindowServerClient {
   private(set) var geometryQueryCount = 0
   private(set) var metadataQueryCount = 0
 
-  private var visibleSpaces = Set<UInt64>()
-  private var allSpaces: [UInt64] = []
+  private var spaces: BorderSpaces
 
-  init() throws { api = try SkyLight() }
+  init() throws {
+    api = try SkyLight()
+    spaces = BorderSpaces(client: api.spaces)
+  }
 
   func windows() throws -> [WindowSnapshot] {
-    try refreshSpaces()
+    let allSpaces = try spaces.refresh()
 
     var set: UInt64 = 0
     var clear: UInt64 = 0
@@ -43,7 +45,7 @@ final class WindowServerClient {
     else { return nil }
 
     if display(for: frame) != display(for: previous.frame) {
-      try? refreshSpaces()
+      _ = try? spaces.refresh()
 
       return snapshot(id: previous.id)
     }
@@ -96,30 +98,6 @@ final class WindowServerClient {
     }
   }
 
-  private func refreshSpaces() throws {
-    guard let raw = api.copyDisplaySpaces(api.connection)?.takeRetainedValue() else {
-      throw MessageError.message("Cannot read display Spaces.")
-    }
-
-    let displays = raw as? [[String: Any]] ?? []
-    allSpaces = []
-    visibleSpaces = []
-
-    for display in displays {
-      if let current = display["Current Space"] as? [String: Any],
-        let id = current["id64"] as? UInt64
-      {
-        visibleSpaces.insert(id)
-      }
-
-      for space in display["Spaces"] as? [[String: Any]] ?? [] {
-        if let id = space["id64"] as? UInt64 { allSpaces.append(id) }
-      }
-    }
-
-    guard !allSpaces.isEmpty else { throw MessageError.message("No desktop Spaces are available.") }
-  }
-
   private func snapshots(ids: CFArray) -> [WindowSnapshot] {
     metadataQueryCount += 1
 
@@ -154,14 +132,12 @@ final class WindowServerClient {
         [frame.minX, frame.minY, frame.width, frame.height].allSatisfy(\.isFinite)
       else { continue }
 
-      let spaces =
-        (api.copySpaces(api.connection, 7, [id] as CFArray)?.takeRetainedValue() as? [NSNumber]
-        ?? []).map(\.uint64Value)
       var ordered = false
 
       guard api.isOrdered(api.connection, id, &ordered) == 0 else { continue }
 
       let sticky = tags & (1 << 11) != 0
+      let membership = spaces.membership(of: id, ordered: ordered, sticky: sticky)
       let app = NSRunningApplication(processIdentifier: pid)
       let radiusValues = api.radii?(iterator)?.takeRetainedValue() as? [NSNumber]
       let radius = radiusValues?.first?.doubleValue ?? 9
@@ -181,10 +157,10 @@ final class WindowServerClient {
           frame: frame,
           level: api.level(iterator),
           sublevel: api.getSublevel(api.connection, id),
-          spaces: spaces,
+          spaces: membership.ids,
           sticky: sticky,
-          visible: ordered && (sticky || !visibleSpaces.isDisjoint(with: spaces)),
-          fullscreen: spaces.contains { api.spaceType(api.connection, $0) == 4 },
+          visible: membership.visible,
+          fullscreen: membership.fullscreen,
           cornerRadius: radius > 0 ? radius : 9,
           scale: scale
         )

@@ -1,4 +1,5 @@
 import AppKit
+import StarkSkyLight
 
 /// Private ABI declarations stay here. Setter return values are deliberately ignored:
 /// several transaction functions return void on current macOS versions.
@@ -9,15 +10,13 @@ final class SkyLight {
   typealias ConnectionNotify =
     @convention(c) (UInt32, UnsafeRawPointer?, Int, UnsafeMutableRawPointer?, Int32) -> Void
 
+  let spaces: any SpaceQuerying
   let connection: Int32
   let getBounds: @convention(c) (Int32, UInt32, UnsafeMutablePointer<CGRect>) -> Int32
   let getSublevel: @convention(c) (Int32, UInt32) -> Int32
   let getOwner: @convention(c) (Int32, UInt32, UnsafeMutablePointer<Int32>) -> Int32
   let getPID: @convention(c) (Int32, UnsafeMutablePointer<pid_t>) -> Int32
   let isOrdered: @convention(c) (Int32, UInt32, UnsafeMutablePointer<Bool>) -> Int32
-  let copyDisplaySpaces: @convention(c) (Int32) -> Unmanaged<CFArray>?
-  let copySpaces: @convention(c) (Int32, Int32, CFArray) -> Unmanaged<CFArray>?
-  let spaceType: @convention(c) (Int32, UInt64) -> Int32
   let copyWindows:
     @convention(c) (
       Int32, UInt32, CFArray, UInt32, UnsafeMutablePointer<UInt64>, UnsafeMutablePointer<UInt64>
@@ -89,14 +88,12 @@ final class SkyLight {
 
     guard connection != 0 else { throw MessageError.message("Cannot connect to WindowServer.") }
 
+    spaces = try SpaceClient()
     getBounds = try load("SLSGetWindowBounds")
     getSublevel = try load("SLSGetWindowSubLevel")
     getOwner = try load("SLSGetWindowOwner")
     getPID = try load("SLSConnectionGetPID")
     isOrdered = try load("SLSWindowIsOrderedIn")
-    copyDisplaySpaces = try load("SLSCopyManagedDisplaySpaces")
-    copySpaces = try load("SLSCopySpacesForWindows")
-    spaceType = try load("SLSSpaceGetType")
     copyWindows = try load("SLSCopyWindowsWithOptionsAndTags")
     query = try load("SLSWindowQueryWindows")
     iterator = try load("SLSWindowQueryResultCopyWindows")
