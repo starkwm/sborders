@@ -1,5 +1,5 @@
 {
-  "originHash" : "942ecd7218543650ce53c9cdd824945428e9da41b731aa7d619a962bd3b2f248",
+  "originHash" : "b4b41d951da153f5f776d50ed42e820d675c8ec8a17823497fe8bbed44195406",
   "pins" : [
     {
       "identity" : "stark-configuration",
@@ -17,6 +17,15 @@
       "state" : {
         "revision" : "cd2a30196dd647483907be5574baef704df79665",
         "version" : "0.0.5"
+      }
+    },
+    {
+      "identity" : "stark-skylight",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/starkwm/stark-skylight",
+      "state" : {
+        "revision" : "71e042a4c65ea62b900a696c7ee22b9ef7f4195f",
+        "version" : "0.0.3"
       }
     },
     {

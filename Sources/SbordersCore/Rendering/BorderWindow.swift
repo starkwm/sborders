@@ -194,9 +194,7 @@ private final class BorderSurface {
         throw MessageError.message("Cannot create a border window.")
       }
 
-      spaces =
-        (api.copySpaces(api.connection, 7, [id] as CFArray)?.takeRetainedValue() as? [NSNumber]
-        ?? []).map(\.uint64Value)
+      spaces = (try? api.spaces.spaceIDs(containing: id))?.map(\.rawValue) ?? []
       api.setOpacity(api.connection, id, false)
       api.shadow(id, ["com.apple.WindowShadowDensity": 0] as CFDictionary)
     }

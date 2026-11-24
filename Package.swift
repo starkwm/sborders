@@ -9,6 +9,7 @@ let package = Package(
     .package(url: "https://github.com/apple/swift-argument-parser", from: "1.7.1"),
     .package(url: "https://github.com/starkwm/stark-configuration", from: "0.0.3"),
     .package(url: "https://github.com/starkwm/stark-ipc", from: "0.0.5"),
+    .package(url: "https://github.com/starkwm/stark-skylight", exact: "0.0.3"),
   ],
   targets: [
     .executableTarget(
@@ -23,12 +24,16 @@ let package = Package(
       dependencies: [
         .product(name: "StarkConfiguration", package: "stark-configuration"),
         .product(name: "StarkIPC", package: "stark-ipc"),
+        .product(name: "StarkSkyLight", package: "stark-skylight"),
       ]
     ),
     .testTarget(name: "SbordersTests", dependencies: ["Sborders"]),
     .testTarget(
       name: "SbordersCoreTests",
-      dependencies: ["SbordersCore", .product(name: "StarkIPC", package: "stark-ipc")]
+      dependencies: [
+        "SbordersCore", .product(name: "StarkIPC", package: "stark-ipc"),
+        .product(name: "StarkSkyLight", package: "stark-skylight"),
+      ]
     ),
   ],
   swiftLanguageModes: [.v6]
