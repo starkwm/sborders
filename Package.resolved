@@ -15,8 +15,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/starkwm/stark-ipc",
       "state" : {
-        "revision" : "cd2a30196dd647483907be5574baef704df79665",
-        "version" : "0.0.5"
+        "revision" : "c40ff4976e2635f65208ea2815747920098a7fb2",
+        "version" : "0.0.6"
       }
     },
     {
