@@ -470,48 +470,7 @@ public final class BorderRuntime {
 
       switch try RuntimeCommand(request) {
       case .query(let subject):
-        switch subject {
-        case .config: return try response(store.configuration)
-        case .windows:
-          return try response(
-            coordinator.windows.values.sorted { $0.id < $1.id }.map { window in
-              WindowStatus(
-                window: window,
-                focused: coordinator.focusedID == window.id,
-                borderID: borders[window.id]?.ids.first,
-                borderIDs: borders[window.id]?.ids ?? [],
-                borderFrame: borders[window.id]?.frame,
-                borderVisible: borders[window.id]?.isVisible ?? false,
-                borderSublevel: borders[window.id]?.sublevel,
-                redrawCount: borders[window.id]?.redrawCount ?? 0,
-                transactionCount: borders[window.id]?.transactionCount ?? 0,
-                contextCreationCount: borders[window.id]?.contextCreationCount ?? 0
-              )
-            }
-          )
-        case .diagnostics:
-          return try response(
-            Diagnostics(
-              pid: getpid(),
-              windowCount: coordinator.windows.count,
-              borderCount: borders.values.filter { !$0.ids.isEmpty }.count,
-              eventCount: eventCount,
-              reconcileCount: reconcileCount,
-              geometryQueryCount: server.geometryQueryCount,
-              metadataQueryCount: server.metadataQueryCount,
-              focusQueryCount: focusQueryCount,
-              configurationPath: store.url.path,
-              hasOverrides: store.hasOverrides,
-              configurationError: store.lastError,
-              backendError: lastBackendError,
-              focusMode: store.configuration.focusMode.rawValue,
-              focusedWindowID: coordinator.focusedID,
-              osVersion: ProcessInfo.processInfo.operatingSystemVersionString,
-              missionControlActive: missionControl.isActive
-            )
-          )
-        }
-
+        return try query(subject).response()
       case .reload: try reload()
       case .set(let property, let value):
         try store.set(property, value: value) { candidate in
@@ -529,9 +488,49 @@ public final class BorderRuntime {
     }
   }
 
-  private func response(_ value: some Encodable) throws -> ControlResponse {
-    ControlResponse(
-      value: try JSONDecoder().decode(JSONValue.self, from: JSONEncoder().encode(value))
+  private func query(_ subject: RuntimeCommand.Subject) -> QueryResult {
+    switch subject {
+    case .config: return .config(store.configuration)
+    case .windows:
+      let windows = coordinator.windows.values.map { window in
+        (window, borderSnapshot(for: window.id))
+      }
+      return .windows(windows, focusedID: coordinator.focusedID)
+    case .diagnostics:
+      return .diagnostics(
+        Diagnostics(
+          pid: getpid(),
+          windowCount: coordinator.windows.count,
+          borderCount: borders.values.filter { !$0.ids.isEmpty }.count,
+          eventCount: eventCount,
+          reconcileCount: reconcileCount,
+          geometryQueryCount: server.geometryQueryCount,
+          metadataQueryCount: server.metadataQueryCount,
+          focusQueryCount: focusQueryCount,
+          configurationPath: store.url.path,
+          hasOverrides: store.hasOverrides,
+          configurationError: store.lastError,
+          backendError: lastBackendError,
+          focusMode: store.configuration.focusMode,
+          focusedWindowID: coordinator.focusedID,
+          osVersion: ProcessInfo.processInfo.operatingSystemVersionString,
+          missionControlActive: missionControl.isActive
+        )
+      )
+    }
+  }
+
+  private func borderSnapshot(for id: UInt32) -> BorderSnapshot? {
+    guard let border = borders[id] else { return nil }
+
+    return BorderSnapshot(
+      ids: border.ids,
+      frame: border.frame,
+      visible: border.isVisible,
+      sublevel: border.sublevel,
+      redrawCount: border.redrawCount,
+      transactionCount: border.transactionCount,
+      contextCreationCount: border.contextCreationCount
     )
   }
 
@@ -539,36 +538,4 @@ public final class BorderRuntime {
     lastBackendError = error.localizedDescription
     logger.error("\(error.localizedDescription, privacy: .public)")
   }
-}
-
-private struct WindowStatus: Encodable {
-  let window: WindowSnapshot
-  let focused: Bool
-  let borderID: UInt32?
-  let borderIDs: [UInt32]
-  let borderFrame: CGRect?
-  let borderVisible: Bool
-  let borderSublevel: Int32?
-  let redrawCount: Int
-  let transactionCount: Int
-  let contextCreationCount: Int
-}
-
-private struct Diagnostics: Encodable {
-  let pid: Int32
-  let windowCount: Int
-  let borderCount: Int
-  let eventCount: Int
-  let reconcileCount: Int
-  let geometryQueryCount: Int
-  let metadataQueryCount: Int
-  let focusQueryCount: Int
-  let configurationPath: String
-  let hasOverrides: Bool
-  let configurationError: String?
-  let backendError: String?
-  let focusMode: String
-  let focusedWindowID: UInt32?
-  let osVersion: String
-  let missionControlActive: Bool
 }
