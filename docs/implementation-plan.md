@@ -8,7 +8,7 @@ Build a standalone Swift daemon that draws borders around macOS application wind
 
 The first version covers solid active and inactive colours, round and square borders, configurable width, application filters, display scaling, window tracking, JSONC reloads, and CLI control. A settings app is outside this scope.
 
-The package targets macOS 26, Swift tools 6.2, and Swift 6 language mode. The original development machine ran macOS 27.0 build `26A428` with Swift 6.4. Testing that machine does not establish macOS 26 compatibility.
+The first version targeted macOS 26, Swift tools 6.2, and Swift 6 language mode. The original development machine ran macOS 27.0 build `26A428` with Swift 6.4. Testing that machine does not establish macOS 26 compatibility.
 
 ## References
 

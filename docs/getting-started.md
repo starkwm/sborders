@@ -2,7 +2,7 @@
 
 ## Build and start
 
-Use macOS 26 or later with a logged-in desktop session. Build with Swift 6.2 or later:
+Use macOS 26 or later with a logged-in desktop session. Build with Swift 6.4 or later:
 
 ```sh
 make build
