@@ -6,7 +6,7 @@ Window borders for macOS.
 
 ## Quick start
 
-Requires macOS 26 or later. Building requires Swift 6.2 or later.
+Requires macOS 26 or later. Building requires Swift 6.4 or later.
 
 ```sh
 make build
